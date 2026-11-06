@@ -101,10 +101,8 @@ def test_info_actividad_distingue_conectada_de_no_disponible():
     assert aplicacion._info_actividad("Bases de Datos PostgreSQL")["clave"] == "pg_lab"
     assert aplicacion._info_actividad("Backend con Node.js")["clave"] == "node_lab"
     assert aplicacion._info_actividad("Programación Orientada a Objetos")["clave"] == "poo"
-    for tema in ("Lógica de Programación", "Patrón MVC en PHP"):
-        info = aplicacion._info_actividad(tema)
-        assert info["clave"] is None
-        assert info["etiqueta"] == "Evaluación no disponible"
+    assert aplicacion._info_actividad("Lógica de Programación")["clave"] == "logica_lab"
+    assert aplicacion._info_actividad("Patrón MVC en PHP")["clave"] == "mvc_lab"
 
 
 def test_bancos_reales_tienen_la_forma_que_espera_la_interfaz():

@@ -67,6 +67,7 @@ RUTA_ENV = BASE / ".env"
 BANCOS = {
     "Bases_de_Datos_PostgreSQL": BASE / "ejercicios_postgresql.json",
     "Patron_MVC_en_PHP": BASE / "ejercicios_mvc_php.json",
+    "Logica_de_Programacion": BASE / "ejercicios_logica.json",
 }
 
 # Formato preferido del estudiante -> formatos del catálogo que le convienen.

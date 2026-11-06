@@ -32,6 +32,13 @@ from calificador_mvc import (
     obtener_ejercicios_laboratorio_mvc,
     obtener_variante_seguimiento_mvc,
 )
+from calificador_logica import (
+    calificar_laboratorio_logica,
+    calificar_seguimiento_logica,
+    obtener_conceptos_logica,
+    obtener_ejercicios_laboratorio_logica,
+    obtener_variante_seguimiento_logica,
+)
 from calificador_node import (
     calificar_laboratorio_node,
     calificar_seguimiento_node,
@@ -150,8 +157,8 @@ def _disponibilidad(motor: Any, tema: str, completados: list[str]) -> str:
         "Programación Orientada a Objetos": ("Práctica de POO · 4 retos · Revisión", "Práctica abierta para revisión docente"),
         "Bases de Datos PostgreSQL": ("Laboratorio (4 ejercicios) o seguimiento (5 preguntas)", "Calificación automática con el calificador real de PostgreSQL."),
         "Backend con Node.js": ("Laboratorio (5 puntos) o seguimiento (5 preguntas)", "Calificación automática con el calificador real de Node.js."),
-        "Lógica de Programación": ("Evaluación no disponible", "Hay ejercicios, pero no un evaluador conectado en esta rama."),
-        "Patrón MVC en PHP": ("Evaluación no disponible", "No hay evaluador conectado para este tema."),
+        "Lógica de Programación": ("Laboratorio (4 ejercicios) o seguimiento (5 preguntas)", "Calificación automática con el calificador de Lógica."),
+        "Patrón MVC en PHP": ("Laboratorio (4 ejercicios) o seguimiento (5 preguntas)", "Calificación automática con el calificador de MVC."),
     }.get(tema, ("Evaluación no disponible", "Sin actividad conectada."))
     return vistas.disponibilidad_html(tema, estado, faltantes, info[0], info[1])
 
@@ -279,6 +286,7 @@ def _persistir_perfil(perfil: dict[str, Any]) -> dict[str, Any]:
 SEGUIMIENTOS = {
     "PostgreSQL · seguimiento": (obtener_variante_seguimiento, calificar_seguimiento),
     "PHP MVC · seguimiento": (obtener_variante_seguimiento_mvc, calificar_seguimiento_mvc),
+    "Lógica de Programación · seguimiento": (obtener_variante_seguimiento_logica, calificar_seguimiento_logica),
 }
 
 GEMINI_ACTIVO = cargar_config().disponible
@@ -407,6 +415,8 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
     ejercicios_lab_node = obtener_ejercicios_laboratorio_node()
     ejercicios_mvc = obtener_ejercicios_laboratorio_mvc()
     conceptos_mvc = obtener_conceptos_mvc()
+    ejercicios_lab_logica = obtener_ejercicios_laboratorio_logica()
+    conceptos_logica = obtener_conceptos_logica()
     estado_inicial = _estado_inicial(motor)
     progreso_activo = estado_inicial["simulacion_activa"]
 
@@ -415,7 +425,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
         "Programación Orientada a Objetos": "Práctica de POO · 4 retos · Revisión",
         "Bases de Datos PostgreSQL": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
         "Backend con Node.js": "Laboratorio (5 puntos) o seguimiento (5 preguntas)",
-        "Lógica de Programación": "Evaluación no disponible",
+        "Lógica de Programación": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
         "Patrón MVC en PHP": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
     }
     estados_actividad = {
@@ -468,6 +478,33 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
         return controles
 
     def ayuda_mvc(ejercicio):
+        gr.HTML(
+            '<h3>Para este ejercicio</h3>'
+            f'<p class="activity-caption">{vistas.e(ejercicio.get("criterio_evaluacion", ""))}</p>'
+            '<details class="activity-help-details"><summary>Cómo se acredita</summary>'
+            '<p class="activity-caption">Se requieren 3 de 4 ejercicios correctos, '
+            'incluida la integradora.</p></details>'
+        )
+
+    criterios_logica: list[str] = []
+
+    def montar_logica(ejercicio, numero):
+        gr.HTML(vistas.actividad_enunciado_html(
+            ejercicio, conceptos_logica.get(ejercicio["concepto"], ejercicio["concepto"])
+        ))
+        if ejercicio.get("codigo"):
+            gr.HTML(vistas.actividad_codigo_html(ejercicio["codigo"]))
+        controles = []
+        for criterio in ejercicio["criterios"]:
+            with gr.Group(elem_classes=["activity-criterion"]):
+                criterios_logica.append(criterio["id"])
+                controles.append(gr.Radio(
+                    criterio["opciones"], label=criterio["pregunta"], value=None,
+                    elem_classes=["activity-options"],
+                ))
+        return controles
+
+    def ayuda_logica(ejercicio):
         gr.HTML(
             '<h3>Para este ejercicio</h3>'
             f'<p class="activity-caption">{vistas.e(ejercicio.get("criterio_evaluacion", ""))}</p>'
@@ -609,6 +646,8 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                     gr.HTML(catalogo_disponibilidad_html, elem_id="catalogo-disponibilidad")
                 actividad_selector = gr.Radio(
                     [
+                        "Lógica de Programación · laboratorio",
+                        "Lógica de Programación · seguimiento",
                         "POO · clases y objetos",
                         "PostgreSQL · laboratorio",
                         "PostgreSQL · seguimiento",
@@ -620,6 +659,13 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                     value=None, label="Actividad", elem_classes=["activity-catalog"],
                 )
                 instrucciones = gr.Markdown(elem_classes=["activity-instructions"])
+
+                with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_logica:
+                    vista_logica = VistaActividad(
+                        "Laboratorio Lógica de Programación", ejercicios_lab_logica, montar_logica,
+                        "Calificar laboratorio Lógica", ayuda_logica,
+                    )
+                    respuestas_logica, enviar_logica = vista_logica.respuestas, vista_logica.enviar
 
                 with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_poo:
                     vista_poo = VistaActividad(
@@ -664,7 +710,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                     )
                     respuestas_seg_node, enviar_seg_node = vista_seg_node.respuestas, vista_seg_node.enviar
 
-                vistas_actividad = [vista_poo, vista_sql, vista_mvc, vista_seg, vista_node, vista_seg_node]
+                vistas_actividad = [vista_logica, vista_poo, vista_sql, vista_mvc, vista_seg, vista_node, vista_seg_node]
 
             # ── Resultados ─────────────────────────────────────────────────
             with gr.Tab("Resultados", id="resultados"):
@@ -840,6 +886,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 seleccion == "Backend con Node.js · seguimiento" and not node_prerrequisitos
             )
             visibilidad = [
+                gr.update(visible=seleccion == "Lógica de Programación · laboratorio"),
                 gr.update(visible=seleccion == "POO · clases y objetos"),
                 gr.update(visible=seleccion == "PostgreSQL · laboratorio"),
                 gr.update(visible=seleccion == "PHP MVC · laboratorio"),
@@ -852,7 +899,10 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             prompts_node = [gr.update(value="") for _ in range(5)]
             radios_node = [gr.update(choices=[], value=None) for _ in range(5)]
             instruccion = "Selecciona una actividad para mostrar sus ejercicios."
-            if seleccion == "POO · clases y objetos":
+            if seleccion == "Lógica de Programación · laboratorio":
+                instruccion = ("Resuelve los cuatro ejercicios de lógica eligiendo una opción en cada criterio. "
+                               "Se acredita con 3 de 4 ejercicios correctos, incluida la integradora.")
+            elif seleccion == "POO · clases y objetos":
                 instruccion = "Responde los cuatro ejercicios. La entrega se acompaña de una lista de revisión, no de una nota automática."
             elif seleccion == "PostgreSQL · laboratorio":
                 instruccion = "Resuelve los cuatro ejercicios SQL. El calificador verificará los resultados y la regla de acreditación."
@@ -893,7 +943,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             )
 
         seleccion_outputs = [
-            grupo_poo, grupo_laboratorio, grupo_mvc, grupo_seguimiento,
+            grupo_logica, grupo_poo, grupo_laboratorio, grupo_mvc, grupo_seguimiento,
             grupo_laboratorio_node, grupo_seguimiento_node,
             *preguntas_seg, *respuestas_seg,
             *preguntas_seg_node, *respuestas_seg_node,
@@ -975,6 +1025,14 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             resultado["respuestas"] = respuestas
             return registrar_resultado(resultado, estado_actual)
 
+        def calificar_lab_logica(*valores):
+            estado_actual = valores[-1]
+            respuestas = {c: r or "" for c, r in zip(criterios_logica, valores[:-1])}
+            inicio = estado_actual.get("inicio_actividad") or time.monotonic()
+            resultado = calificar_laboratorio_logica(respuestas, tiempo=max(0.0, time.monotonic() - inicio))
+            resultado["respuestas"] = respuestas
+            return registrar_resultado(resultado, estado_actual)
+
         def calificar_lab_mvc(*valores):
             estado_actual = valores[-1]
             respuestas = {c: r or "" for c, r in zip(criterios_mvc, valores[:-1])}
@@ -1029,6 +1087,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             ruta_cabecera, siguiente_paso, lista_pasos, grafo, tema_detalle, tema_grafo,
             navegacion, explicacion_ia, pedir_ia, cargando_ia,
         ]
+        enviar_logica.click(calificar_lab_logica, [*respuestas_logica, estado], resultado_outputs)
         enviar_mvc.click(calificar_lab_mvc, [*respuestas_mvc, estado], resultado_outputs)
         enviar_poo.click(entregar_poo, [*respuestas_poo, estado], resultado_outputs)
         enviar_lab.click(calificar_lab, [*respuestas_lab, estado], resultado_outputs)

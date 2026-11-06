@@ -1,0 +1,388 @@
+{
+    "tema": "Logica_de_Programacion",
+    "conceptos": {
+        "CONDICIONES": "Condiciones y bifurcaciones",
+        "CICLOS": "Ciclos e iteraciones",
+        "CORRECCION_LOGICA": "Corrección de errores lógicos",
+        "INTEGRADOR_LOGICA": "Problema integrador (condiciones y ciclos)"
+    },
+    "laboratorio": [
+        {
+            "id": "LOG-LAB01",
+            "tema": "Logica_de_Programacion",
+            "tipo": "laboratorio",
+            "concepto": "CONDICIONES",
+            "dificultad": "Principiante",
+            "enunciado": "Se requiere clasificar calificaciones académicas y verificar propiedades numéricas mediante estructuras condicionales (if/elif/else y operadores booleanos). Analiza los siguientes dos casos:",
+            "codigo": "# Caso 1: Clasificación de nota (0 a 100)\nif calificacion >= 90:\n    resultado = 'Excelente'\nelif calificacion >= 60:\n    resultado = 'Aprobado'\nelse:\n    resultado = 'Reprobado'\n\n# Caso 2: Paridad y divisibilidad\nes_par_y_div3 = (n % 2 == 0) and (n % 3 == 0)",
+            "criterio_evaluacion": "Acredita el ejercicio si responde correctamente ambos criterios sobre precedencia condicional y operadores lógicos.",
+            "criterios": [
+                {
+                    "id": "L01-RESTRICTIVA",
+                    "descripcion": "Comprende la precedencia de condiciones de mayor a menor restricción",
+                    "pregunta": "¿Por qué la condición 'calificacion >= 90' debe evaluarse ANTES de 'calificacion >= 60'?",
+                    "opciones": [
+                        "Porque si se evalúa primero >= 60, una nota de 95 entraría ahí y nunca llegaría a 'Excelente'",
+                        "Porque Python genera un error de sintaxis si las condiciones no van en orden decreciente",
+                        "Porque la instrucción elif solo acepta números menores a 50",
+                        "Porque los operadores de comparación no se pueden reutilizar en un mismo bloque"
+                    ],
+                    "respuesta_correcta": "Porque si se evalúa primero >= 60, una nota de 95 entraría ahí y nunca llegaría a 'Excelente'"
+                },
+                {
+                    "id": "L01-OPERADOR-LOGICO",
+                    "descripcion": "Aplica el operador módulo y conjunción lógica (and)",
+                    "pregunta": "¿Cuál es la expresión booleana correcta para determinar si 'n' es simultáneamente par Y divisible entre 3?",
+                    "opciones": [
+                        "(n % 2 == 0) and (n % 3 == 0)",
+                        "(n % 2 == 0) or (n % 3 == 0)",
+                        "(n // 2 == 0) and (n // 3 == 0)",
+                        "(n % 6 != 0)"
+                    ],
+                    "respuesta_correcta": "(n % 2 == 0) and (n % 3 == 0)"
+                }
+            ]
+        },
+        {
+            "id": "LOG-LAB02",
+            "tema": "Logica_de_Programacion",
+            "tipo": "laboratorio",
+            "concepto": "CICLOS",
+            "dificultad": "Intermedio",
+            "enunciado": "Se implementan ciclos 'for' con acumuladores y ciclos 'while' de validación de entradas. Evalúa los parámetros de rango y condiciones de repetición:",
+            "codigo": "# Caso A: Acumular suma del 1 al N\nsuma = 0\nfor i in range(1, n + 1):\n    suma += i\n\n# Caso B: Validar número entre 1 y 100\nnumero = None\nwhile numero is None or numero < 1 or numero > 100:\n    numero = pedir_entero()",
+            "criterio_evaluacion": "Acredita el ejercicio si define correctamente los límites de range() y la condición de parada del while.",
+            "criterios": [
+                {
+                    "id": "L02-RANGE-ACUMULADOR",
+                    "descripcion": "Determina los límites inclusivos en la función range() para un acumulador",
+                    "pregunta": "Para sumar todos los enteros desde 1 hasta N inclusive, ¿cuál es el argumento correcto en range()?",
+                    "opciones": [
+                        "range(1, n + 1)",
+                        "range(1, n)",
+                        "range(0, n)",
+                        "range(n + 1)"
+                    ],
+                    "respuesta_correcta": "range(1, n + 1)"
+                },
+                {
+                    "id": "L02-WHILE-VALIDACION",
+                    "descripcion": "Formula la condición booleana de repetición mientras la entrada sea inválida",
+                    "pregunta": "¿Cuál condición mantiene al ciclo while repitiéndose mientras el número NO esté entre 1 y 100?",
+                    "opciones": [
+                        "numero is None or numero < 1 or numero > 100",
+                        "numero >= 1 and numero <= 100",
+                        "1 <= numero <= 100",
+                        "numero == 0 or numero == 100"
+                    ],
+                    "respuesta_correcta": "numero is None or numero < 1 or numero > 100"
+                }
+            ]
+        },
+        {
+            "id": "LOG-LAB03",
+            "tema": "Logica_de_Programacion",
+            "tipo": "laboratorio",
+            "concepto": "CORRECCION_LOGICA",
+            "dificultad": "Intermedio",
+            "enunciado": "Revisa los siguientes dos fragmentos con errores lógicos comunes y selecciona la corrección requerida:",
+            "codigo": "# Error 1: Ciclo infinito\ncontador = 10\nwhile contador > 0:\n    print(contador)\n    contador += 1  # Debería decrementar hacia 0\n\n# Error 2: Acumulador que se sobreescribe\nsuma_pares = 0\nfor num in range(1, 11):\n    if num % 2 == 0:\n        suma_pares = num  # Debería acumular (+=)",
+            "criterio_evaluacion": "Acredita el ejercicio si identifica la causa y la corrección de ciclos infinitos y sobreescritura de acumuladores.",
+            "criterios": [
+                {
+                    "id": "L03-CORRECCION-INFINITO",
+                    "descripcion": "Identifica y corrige la actualización de la variable de control en el while",
+                    "pregunta": "¿Cómo se corrige el Error 1 para que imprima del 10 al 1 y no entre en ciclo infinito?",
+                    "opciones": [
+                        "Cambiar 'contador += 1' por 'contador -= 1'",
+                        "Cambiar la condición por 'while contador < 0:'",
+                        "Eliminar la variable contador e iterar con un bool",
+                        "Agregar un pass después del print"
+                    ],
+                    "respuesta_correcta": "Cambiar 'contador += 1' por 'contador -= 1'"
+                },
+                {
+                    "id": "L03-CORRECCION-ACUMULADOR",
+                    "descripcion": "Distingue entre asignación destructiva (=) y acumulación aditiva (+=)",
+                    "pregunta": "¿Por qué el Error 2 imprime 10 en lugar de 30 y cómo debe corregirse?",
+                    "opciones": [
+                        "Usa '=' reemplazando el valor en cada par; debe corregirse con 'suma_pares += num'",
+                        "La variable suma_pares debe reiniciarse en 1 dentro del ciclo for",
+                        "El operador % 2 no funciona con números pares",
+                        "Falta un 'break' al encontrar el primer número par"
+                    ],
+                    "respuesta_correcta": "Usa '=' reemplazando el valor en cada par; debe corregirse con 'suma_pares += num'"
+                }
+            ]
+        },
+        {
+            "id": "LOG-LAB04",
+            "tema": "Logica_de_Programacion",
+            "tipo": "laboratorio",
+            "concepto": "INTEGRADOR_LOGICA",
+            "dificultad": "Avanzado",
+            "enunciado": "Un sistema procesa una lista de calificaciones: descarta valores fuera de rango (menores a 0 o mayores a 100), calcula el promedio de las válidas y determina la aprobación (promedio >= 60).",
+            "codigo": "validas = []\nfor c in calificaciones:\n    if 0 <= c <= 100:\n        validas.append(c)\n\npromedio = sum(validas) / len(validas) if len(validas) > 0 else 0\naprobado = promedio >= 60",
+            "criterio_evaluacion": "Acredita la integradora si valida el filtrado en ciclo, el cálculo seguro del promedio y la decisión final.",
+            "criterios": [
+                {
+                    "id": "L04-FILTRADO-CICLO",
+                    "descripcion": "Aplica filtrado y discriminación de datos en una iteración",
+                    "pregunta": "¿Cómo se asegura el algoritmo de que notas inválidas (ej. -5 o 120) no alteren el promedio?",
+                    "opciones": [
+                        "Filtrando con 'if 0 <= c <= 100:' para incluir en el acumulador únicamente notas válidas",
+                        "Reemplazando cualquier nota negativa por 100 automáticamente",
+                        "Deteniendo el programa con un error en cuanto aparezca una nota inválida",
+                        "Dividiendo entre el total original de calificaciones sin importar los valores"
+                    ],
+                    "respuesta_correcta": "Filtrando con 'if 0 <= c <= 100:' para incluir en el acumulador únicamente notas válidas"
+                },
+                {
+                    "id": "L04-DECISION-INTEGRADORA",
+                    "descripcion": "Integra el cálculo con protección de división por cero y condición de aprobación",
+                    "pregunta": "¿Por qué se utiliza la expresión ternaria 'if len(validas) > 0 else 0' al calcular el promedio?",
+                    "opciones": [
+                        "Para prevenir un error ZeroDivisionError si la lista no contiene notas válidas",
+                        "Porque Python prohíbe dividir listas por enteros",
+                        "Para asegurar que el promedio siempre sea al menos 60",
+                        "Para redondear automáticamente el resultado a números enteros"
+                    ],
+                    "respuesta_correcta": "Para prevenir un error ZeroDivisionError si la lista no contiene notas válidas"
+                }
+            ]
+        }
+    ],
+    "seguimiento": {
+        "logica_variante_1": [
+            {
+                "id": "LOG-SEG-V1-01",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CONDICIONES",
+                "dificultad": "Principiante",
+                "enunciado": "¿Qué valor produce la expresión booleana: (10 > 5) and (3 == 4)?",
+                "opciones": [
+                    "False",
+                    "True",
+                    "None",
+                    "SyntaxError"
+                ],
+                "respuesta_correcta": "False"
+            },
+            {
+                "id": "LOG-SEG-V1-02",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CONDICIONES",
+                "dificultad": "Principiante",
+                "enunciado": "Si 'temperatura = 22', ¿qué imprime el bloque?\nif temperatura > 30: print('Calor')\nelif temperatura > 20: print('Templado')\nelse: print('Frío')",
+                "opciones": [
+                    "Templado",
+                    "Calor",
+                    "Frío",
+                    "Calor y Templado"
+                ],
+                "respuesta_correcta": "Templado"
+            },
+            {
+                "id": "LOG-SEG-V1-03",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CICLOS",
+                "dificultad": "Principiante",
+                "enunciado": "¿Cuántas veces se ejecuta el cuerpo del ciclo 'for i in range(3):'?",
+                "opciones": [
+                    "3 veces (con i = 0, 1, 2)",
+                    "2 veces (con i = 1, 2)",
+                    "4 veces (con i = 0, 1, 2, 3)",
+                    "Infinitas veces"
+                ],
+                "respuesta_correcta": "3 veces (con i = 0, 1, 2)"
+            },
+            {
+                "id": "LOG-SEG-V1-04",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CORRECCION_LOGICA",
+                "dificultad": "Intermedio",
+                "enunciado": "Un ciclo 'while x != 5:' inicia con 'x = 0' y dentro ejecuta 'x += 2'. ¿Qué ocurre con este ciclo?",
+                "opciones": [
+                    "Se vuelve infinito porque x toma valores pares (0, 2, 4, 6...) y nunca es exactamente 5",
+                    "Termina en la tercera iteración asignando 5 a x",
+                    "Lanza una excepción de desbordamiento",
+                    "Ejecuta exactamente 5 iteraciones"
+                ],
+                "respuesta_correcta": "Se vuelve infinito porque x toma valores pares (0, 2, 4, 6...) y nunca es exactamente 5"
+            },
+            {
+                "id": "LOG-SEG-V1-05",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "INTEGRADOR_LOGICA",
+                "dificultad": "Intermedio",
+                "enunciado": "Dada una lista números = [3, -1, 4, -2, 5], queremos sumar SOLO los positivos. ¿Qué estructura lógica se requiere dentro del ciclo?",
+                "opciones": [
+                    "if n > 0: suma += n",
+                    "if n < 0: suma += n",
+                    "suma = n",
+                    "while n > 0: suma += 1"
+                ],
+                "respuesta_correcta": "if n > 0: suma += n"
+            }
+        ],
+        "logica_variante_2": [
+            {
+                "id": "LOG-SEG-V2-01",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CONDICIONES",
+                "dificultad": "Principiante",
+                "enunciado": "¿Cuál de los siguientes operadores se utiliza para verificar si dos valores son diferentes en una condición?",
+                "opciones": [
+                    "!=",
+                    "==",
+                    "<>",
+                    "not in"
+                ],
+                "respuesta_correcta": "!="
+            },
+            {
+                "id": "LOG-SEG-V2-02",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CONDICIONES",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Qué condición evalúa como True si la variable 'edad' está en el rango de 18 a 65 inclusive?",
+                "opciones": [
+                    "18 <= edad <= 65",
+                    "edad > 18 or edad < 65",
+                    "edad == 18 and edad == 65",
+                    "not (18 <= edad <= 65)"
+                ],
+                "respuesta_correcta": "18 <= edad <= 65"
+            },
+            {
+                "id": "LOG-SEG-V2-03",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CICLOS",
+                "dificultad": "Principiante",
+                "enunciado": "¿Qué instrucción permite interrumpir y salir inmediatamente de un ciclo 'for' o 'while'?",
+                "opciones": [
+                    "break",
+                    "continue",
+                    "pass",
+                    "exit"
+                ],
+                "respuesta_correcta": "break"
+            },
+            {
+                "id": "LOG-SEG-V2-04",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CORRECCION_LOGICA",
+                "dificultad": "Intermedio",
+                "enunciado": "Si queremos omitir los números impares en un ciclo sin terminarlo, ¿qué instrucción debe usarse tras 'if num % 2 != 0:'?",
+                "opciones": [
+                    "continue",
+                    "break",
+                    "return",
+                    "stop"
+                ],
+                "respuesta_correcta": "continue"
+            },
+            {
+                "id": "LOG-SEG-V2-05",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "INTEGRADOR_LOGICA",
+                "dificultad": "Avanzado",
+                "enunciado": "Para contar cuántos alumnos reprobaron (calificación < 60) en una lista, ¿cuál es el procedimiento correcto?",
+                "opciones": [
+                    "Inicializar reprobados = 0 antes del ciclo, y dentro hacer 'if c < 60: reprobados += 1'",
+                    "Hacer 'reprobados = c' cada vez que c < 60",
+                    "Usar len(calificaciones) sin condiciones",
+                    "Inicializar reprobados = 0 dentro del ciclo for"
+                ],
+                "respuesta_correcta": "Inicializar reprobados = 0 antes del ciclo, y dentro hacer 'if c < 60: reprobados += 1'"
+            }
+        ],
+        "logica_variante_3": [
+            {
+                "id": "LOG-SEG-V3-01",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CONDICIONES",
+                "dificultad": "Principiante",
+                "enunciado": "¿Qué resultado produce 'not (True or False)'?",
+                "opciones": [
+                    "False",
+                    "True",
+                    "None",
+                    "Error de sintaxis"
+                ],
+                "respuesta_correcta": "False"
+            },
+            {
+                "id": "LOG-SEG-V3-02",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CICLOS",
+                "dificultad": "Principiante",
+                "enunciado": "¿Qué valores genera la expresión 'range(2, 8, 2)'?",
+                "opciones": [
+                    "2, 4, 6",
+                    "2, 3, 4, 5, 6, 7",
+                    "2, 4, 6, 8",
+                    "4, 6, 8"
+                ],
+                "respuesta_correcta": "2, 4, 6"
+            },
+            {
+                "id": "LOG-SEG-V3-03",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CICLOS",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Cuándo es más recomendable usar un ciclo 'while' en lugar de un 'for'?",
+                "opciones": [
+                    "Cuando el número de iteraciones depende de una condición dinámica y no se conoce de antemano",
+                    "Cuando se va a recorrer una lista de elementos definida",
+                    "Siempre, porque while ejecuta más rápido que for",
+                    "Únicamente cuando se procesan números impares"
+                ],
+                "respuesta_correcta": "Cuando el número de iteraciones depende de una condición dinámica y no se conoce de antemano"
+            },
+            {
+                "id": "LOG-SEG-V3-04",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "CORRECCION_LOGICA",
+                "dificultad": "Intermedio",
+                "enunciado": "El código 'if x = 10:' produce un SyntaxError. ¿Por qué razón?",
+                "opciones": [
+                    "Porque '=' es asignación; la comparación de igualdad requiere '=='",
+                    "Porque x no puede compararse con números enteros",
+                    "Porque falta una coma después de la x",
+                    "Porque los condicionales en Python requieren llaves {}"
+                ],
+                "respuesta_correcta": "Porque '=' es asignación; la comparación de igualdad requiere '=='"
+            },
+            {
+                "id": "LOG-SEG-V3-05",
+                "tema": "Logica_de_Programacion",
+                "tipo": "seguimiento",
+                "concepto": "INTEGRADOR_LOGICA",
+                "dificultad": "Avanzado",
+                "enunciado": "Se busca el número mayor de una lista 'numeros'. ¿Cuál es el algoritmo integrador correcto?",
+                "opciones": [
+                    "mayor = numeros[0]; for n in numeros[1:]: if n > mayor: mayor = n",
+                    "mayor = 0; for n in numeros: if n < mayor: mayor = n",
+                    "for n in numeros: mayor = n",
+                    "mayor = len(numeros) * sum(numeros)"
+                ],
+                "respuesta_correcta": "mayor = numeros[0]; for n in numeros[1:]: if n > mayor: mayor = n"
+            }
+        ]
+    }
+}

@@ -177,14 +177,14 @@ def _info_actividad(tema: str) -> dict[str, str | None]:
             "detalle": "Calificación automática con el calificador real de Node.js.",
         },
         "Lógica de Programación": {
-            "clave": None,
-            "etiqueta": "Evaluación no disponible",
-            "detalle": "Hay ejercicios en ejercicios_logica.py, pero no un evaluador conectado en esta rama.",
+            "clave": "logica_lab",
+            "etiqueta": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
+            "detalle": "Calificación automática con el calificador real de Lógica de Programación.",
         },
         "Patrón MVC en PHP": {
-            "clave": None,
-            "etiqueta": "Evaluación no disponible",
-            "detalle": "No hay banco de ejercicios ni evaluador conectado para este tema.",
+            "clave": "mvc_lab",
+            "etiqueta": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
+            "detalle": "Calificación automática con el calificador real de MVC.",
         },
     }
     return mapa.get(tema, {"clave": None, "etiqueta": "Evaluación no disponible", "detalle": "Sin actividad conectada."})

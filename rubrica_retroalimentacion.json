@@ -182,10 +182,72 @@
             }
         },
         "Logica_de_Programacion": {
-            "conceptos": {},
-            "criterios": {},
+            "conceptos": {
+                "CONDICIONES": {
+                    "nombre": "Condiciones y bifurcaciones",
+                    "acierto": "Construyes bifurcaciones if/elif/else coherentes respetando la precedencia de condiciones.",
+                    "mejora": "Confundes la jerarquía en estructuras condicionales o los operadores lógicos.",
+                    "pista": "Evalúa primero la condición más restrictiva; si colocas una condición general al principio, los casos particulares nunca se ejecutarán.",
+                    "recurso": "Recurso_Lectura_Logica"
+                },
+                "CICLOS": {
+                    "nombre": "Ciclos e iteraciones",
+                    "acierto": "Utilizas range() y condiciones while con límites adecuados y acumuladores.",
+                    "mejora": "Los límites del rango o la condición de parada del ciclo no son exactos.",
+                    "pista": "Recuerda que range(inicio, fin) excluye el valor 'fin'. Si necesitas incluir N, el límite superior debe ser n + 1.",
+                    "recurso": "Recurso_Video_Logica"
+                },
+                "CORRECCION_LOGICA": {
+                    "nombre": "Corrección de errores lógicos",
+                    "acierto": "Detectas fallas de control de bucles y sobreescrituras accidentales de variables.",
+                    "mejora": "No identificas la diferencia entre acumulación aditiva (+=) y asignación destructiva (=) o la actualización en el while.",
+                    "pista": "Para acumular valores en un bucle usa '+='; el operador '=' sustituye el acumulador en cada iteración perdiendo la suma previa.",
+                    "recurso": "Recurso_Practica_Logica"
+                },
+                "INTEGRADOR_LOGICA": {
+                    "nombre": "Problema integrador de lógica",
+                    "acierto": "Combinas adecuadamente ciclos, filtrado con condiciones y cálculo de métricas agregadas.",
+                    "mejora": "La integración entre el ciclo y las condiciones no discrimina correctamente los casos especiales.",
+                    "pista": "Filtra los datos antes de operar con ellos y protege divisiones contra listas vacías comprobando la longitud previamente.",
+                    "recurso": "Recurso_Practica_Logica"
+                }
+            },
+            "criterios": {
+                "L01-RESTRICTIVA": {
+                    "mejora": "No ordenaste las condiciones de mayor a menor restricción.",
+                    "pista": "Coloca las notas más altas al principio (>= 90); de lo contrario entrarán en el caso general >= 60."
+                },
+                "L01-OPERADOR-LOGICO": {
+                    "mejora": "No aplicaste la combinación correcta de operadores booleanos y módulo.",
+                    "pista": "Para exigir ambas propiedades simultáneamente usa 'and', y para divisibilidad exacta usa '% divisor == 0'."
+                },
+                "L02-RANGE-ACUMULADOR": {
+                    "mejora": "El rango no incluye el número N final.",
+                    "pista": "range(1, n) se detiene en n - 1; para llegar hasta n debes usar range(1, n + 1)."
+                },
+                "L02-WHILE-VALIDACION": {
+                    "mejora": "La condición del ciclo while no captura los valores fuera de rango.",
+                    "pista": "El ciclo debe continuar mientras el número sea menor a 1 o mayor a 100."
+                },
+                "L03-CORRECCION-INFINITO": {
+                    "mejora": "No corregiste la dirección del contador en el while.",
+                    "pista": "Para avanzar hacia 0 desde un positivo, debes restar (contador -= 1) en lugar de sumar."
+                },
+                "L03-CORRECCION-ACUMULADOR": {
+                    "mejora": "No identificaste la reasignación destructiva de la suma.",
+                    "pista": "Reemplazar con '=' olvida el valor anterior; utiliza '+=' para acumular."
+                },
+                "L04-FILTRADO-CICLO": {
+                    "mejora": "Las calificaciones inválidas se están procesando dentro del cálculo.",
+                    "pista": "Verifica que el rango sea 0 <= c <= 100 antes de agregar el valor al cálculo."
+                },
+                "L04-DECISION-INTEGRADORA": {
+                    "mejora": "No se protegió la división por cero o la regla de aprobación.",
+                    "pista": "Comprueba si hay notas válidas antes de dividir para no lanzar ZeroDivisionError."
+                }
+            },
             "general": {
-                "acierto_total": "Completaste la actividad de Lógica de Programación.",
+                "acierto_total": "Completaste la actividad de Lógica de Programación exitosamente.",
                 "mejora_total": "Revisa las condiciones y los ciclos de los ejercicios que no salieron.",
                 "pista_avance": "Prueba tu solución a mano con valores límite (0, negativos, el último elemento) antes de ejecutarla.",
                 "recurso": "Recurso_Lectura_Logica"
