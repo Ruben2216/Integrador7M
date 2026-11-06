@@ -1,5 +1,14 @@
-"""Interfaz principal del recomendador y las actividades del proyecto."""
+"""Interfaz Gradio del recomendador — versión integrada.
 
+Montaje visual sobre la lógica del compañero (commit cc8bca1):
+  · calificador_mvc, laboratorio PHP MVC, seguimientos PHP/PostgreSQL/Node.js
+  · retroalimentación local, IA/Gemini, rúbrica de retroalimentación
+  · variantes de seguimiento, botón de explicación con IA
+
+La presentación usa vistas semánticas de ``ui/vistas.py`` y el CSS centralizado
+de ``ui/estilos.py``. La lógica de calificación, persistencia y motor A* se
+conserva íntegramente sin cambios de responsabilidad.
+"""
 from __future__ import annotations
 
 import json
@@ -23,74 +32,38 @@ from calificador_mvc import (
     obtener_ejercicios_laboratorio_mvc,
     obtener_variante_seguimiento_mvc,
 )
-from recomendador import NIVELES, FORMATOS, NODO_A_TEMA, TEMA_A_NODO
-import simulacion
-from integracion_calificador import normalizar_resultado_calificador
 from calificador_node import (
     calificar_laboratorio_node,
     calificar_seguimiento_node,
     obtener_ejercicios_laboratorio_node,
     obtener_variante_seguimiento_node,
 )
+from integracion_calificador import normalizar_resultado_calificador
 from progreso import ErrorProgreso, temas_acreditados
-from retroalimentacion import (cargar_config, estado_gemini, generar_retroalimentacion,
-                               solicitar_explicacion)
-from ui.resultados import renderizar_retroalimentacion
-
-# Actividades de seguimiento: (obtener siguiente variante, calificar).
-SEGUIMIENTOS = {
-    "PostgreSQL · seguimiento": (obtener_variante_seguimiento, calificar_seguimiento),
-    "PHP MVC · seguimiento": (obtener_variante_seguimiento_mvc, calificar_seguimiento_mvc),
-}
-
-
-GEMINI_ACTIVO = cargar_config().disponible
-TEXTO_BOTON_IA = "Pedir explicación con IA (Gemini)"
-CARGANDO_IA_HTML = (
-    '<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;">'
-    '<svg width="26" height="26" viewBox="0 0 50 50" aria-hidden="true">'
-    '<circle cx="25" cy="25" r="20" fill="none" stroke="#d0d7de" stroke-width="5"/>'
-    '<circle cx="25" cy="25" r="20" fill="none" stroke="#f97316" stroke-width="5" '
-    'stroke-linecap="round" stroke-dasharray="80 126">'
-    '<animateTransform attributeName="transform" type="rotate" from="0 25 25" '
-    'to="360 25 25" dur="0.9s" repeatCount="indefinite"/></circle></svg>'
-    '<span>Generando la explicación con Gemini… puede tardar unos segundos.</span></div>'
+from recomendador import FORMATOS, NIVELES, NODO_A_TEMA, TEMA_A_NODO
+import simulacion
+from retroalimentacion import (
+    cargar_config,
+    estado_gemini,
+    generar_retroalimentacion,
+    solicitar_explicacion,
 )
-
-
-def _boton_ia(habilitado: bool, texto: str = TEXTO_BOTON_IA) -> dict[str, Any]:
-    """
-    Estado del botón de explicación con IA:
-      · sin Gemini configurado → siempre deshabilitado, con el motivo;
-      · sin intento calificado (o práctica POO) → deshabilitado;
-      · intento calificado → habilitado; mientras carga y después de recibir la
-        explicación de Gemini → deshabilitado (no se pide dos veces lo mismo);
-      · si Gemini falló y se mostró el respaldo local → habilitado para reintentar.
-    """
-    if not GEMINI_ACTIVO:
-        return {"value": "Explicación con IA no disponible (Gemini no configurado)",
-                "interactive": False}
-    return {"value": texto, "interactive": habilitado}
-
-
-def _retroalimentacion_local(resultado: dict[str, Any], formato: str | None):
-    """Plan B del integrante 5; si algo falla, la calificación se muestra igual."""
-    try:
-        return generar_retroalimentacion(resultado, formato)
-    except Exception:  # la retroalimentación nunca debe impedir guardar el intento
-        return None
+from ui import vistas
+from ui.resultados import renderizar_retroalimentacion
+from ui.estilos import CSS
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _RUTA_CATALOGO = os.path.join(_DIR, "catalogo_recursos.json")
 _RUTA_POO = os.path.join(_DIR, "ejercicios_poo.json")
 
 
+# ── Carga y estado ──────────────────────────────────────────────────────────
 def _cargar_json(ruta: str) -> dict[str, Any]:
     with open(ruta, encoding="utf-8") as archivo:
         return json.load(archivo)
 
 
-def _cargar_catalogo() -> dict[str, dict[str, str]]:
+def _cargar_catalogo() -> dict[str, dict[str, Any]]:
     return _cargar_json(_RUTA_CATALOGO)
 
 
@@ -99,8 +72,8 @@ def _estado_inicial(motor: Any) -> dict[str, Any]:
     try:
         guardado = simulacion.almacen.cargar()
     except ErrorProgreso as exc:
-        # No se escribe ni reemplaza un archivo existente que no pudo leerse.
         from progreso import estado_inicial as crear_estado_vacio
+
         guardado = crear_estado_vacio()
         error_progreso = str(exc)
     perfil_guardado = guardado.get("perfil", {})
@@ -116,8 +89,7 @@ def _estado_inicial(motor: Any) -> dict[str, Any]:
     }
     completados = temas_acreditados(guardado)
     variantes_usadas = [
-        intento["variante"] for intento in guardado["intentos"]
-        if intento.get("variante")
+        intento["variante"] for intento in guardado["intentos"] if intento.get("variante")
     ]
     return {
         "perfil": profile,
@@ -134,52 +106,56 @@ def _estado_inicial(motor: Any) -> dict[str, Any]:
     }
 
 
-def _obtener_recursos(catalogo: dict[str, dict[str, str]], ids: list[str]) -> str:
-    lineas = []
-    for recurso_id in ids:
-        recurso = catalogo[recurso_id]
-        lineas.append(
-            f"- **[{recurso['titulo']}]({recurso['enlace']})** — "
-            f"{recurso['formato']} · {recurso['fuente']}"
-        )
-    return "\n".join(lineas) if lineas else "_No hay recursos registrados para este tema._"
-
-
+# ── Consultas al grafo y catálogo ───────────────────────────────────────────
 def _estado_del_tema(motor: Any, tema: str, completados: list[str]) -> tuple[str, list[str]]:
     nodo = TEMA_A_NODO[tema]
     if tema in completados:
         return "Acreditado", []
     faltantes = [
-        NODO_A_TEMA[prerrequisito]
-        for prerrequisito in motor.grafo[nodo]["prerrequisitos"]
-        if NODO_A_TEMA[prerrequisito] not in completados
+        NODO_A_TEMA[pre] for pre in motor.grafo[nodo]["prerrequisitos"]
+        if NODO_A_TEMA[pre] not in completados
     ]
     return ("Bloqueado", faltantes) if faltantes else ("Disponible", [])
 
 
-def _detalle_tema(
-    motor: Any,
-    catalogo: dict[str, dict[str, str]],
-    tema: str,
-    completados: list[str],
-) -> str:
-    estado, faltantes = _estado_del_tema(motor, tema, completados)
+def _temas_pertinentes(motor: Any, meta: str) -> list[str]:
+    nodo_meta = TEMA_A_NODO[meta]
+    relevantes: set[str] = set()
+    pendientes = [nodo_meta]
+    while pendientes:
+        nodo = pendientes.pop()
+        if nodo in relevantes:
+            continue
+        relevantes.add(nodo)
+        pendientes.extend(motor.grafo[nodo]["prerrequisitos"])
+    return [tema for tema in motor.temas if TEMA_A_NODO[tema] in relevantes]
+
+
+def _recursos_html(catalogo: dict[str, dict[str, Any]], tema: str, motor: Any) -> str:
     nodo = TEMA_A_NODO[tema]
-    prerrequisitos = [
-        NODO_A_TEMA[requisito] for requisito in motor.grafo[nodo]["prerrequisitos"]
-    ]
-    pendientes = ", ".join(faltantes) if faltantes else "Ninguno"
-    requisitos = ", ".join(prerrequisitos) if prerrequisitos else "Ninguno"
-    recursos = _obtener_recursos(catalogo, motor.grafo[nodo]["recursos"])
-    return (
-        f"### {tema}\n"
-        f"**Estado:** {estado}  \n"
-        f"**Prerrequisitos:** {requisitos}  \n"
-        f"**Prerrequisitos pendientes:** {pendientes}\n\n"
-        f"#### Recursos\n{recursos}"
-    )
+    return vistas.recursos_html(catalogo, motor.grafo[nodo]["recursos"])
 
 
+def _meta_detalle(motor: Any, catalogo: dict[str, dict[str, Any]], meta: str, completados: list[str]) -> str:
+    nodo = TEMA_A_NODO[meta]
+    prerequisitos = [NODO_A_TEMA[n] for n in motor.grafo[nodo]["prerrequisitos"]]
+    pendientes = [t for t in prerequisitos if t not in completados]
+    return vistas.meta_detalle_html(meta, prerequisitos, pendientes, _recursos_html(catalogo, tema=meta, motor=motor))
+
+
+def _disponibilidad(motor: Any, tema: str, completados: list[str]) -> str:
+    estado, faltantes = _estado_del_tema(motor, tema, completados)
+    info = {
+        "Programación Orientada a Objetos": ("Práctica de POO · 4 retos · Revisión", "Práctica abierta para revisión docente"),
+        "Bases de Datos PostgreSQL": ("Laboratorio (4 ejercicios) o seguimiento (5 preguntas)", "Calificación automática con el calificador real de PostgreSQL."),
+        "Backend con Node.js": ("Laboratorio (5 puntos) o seguimiento (5 preguntas)", "Calificación automática con el calificador real de Node.js."),
+        "Lógica de Programación": ("Evaluación no disponible", "Hay ejercicios, pero no un evaluador conectado en esta rama."),
+        "Patrón MVC en PHP": ("Evaluación no disponible", "No hay evaluador conectado para este tema."),
+    }.get(tema, ("Evaluación no disponible", "Sin actividad conectada."))
+    return vistas.disponibilidad_html(tema, estado, faltantes, info[0], info[1])
+
+
+# ── Grafo ───────────────────────────────────────────────────────────────────
 def _dibujar_grafo(motor: Any, completados: list[str], seleccionado: str | None):
     import matplotlib.pyplot as plt
     import networkx as nx
@@ -192,83 +168,93 @@ def _dibujar_grafo(motor: Any, completados: list[str], seleccionado: str | None)
         for nodo in generacion:
             grafo.nodes[nodo]["capa"] = capa
     posicion = nx.multipartite_layout(grafo, subset_key="capa")
-
-    colores = []
+    colores, bordes = [], []
     for nodo in grafo.nodes:
         tema = NODO_A_TEMA[nodo]
         estado, _ = _estado_del_tema(motor, tema, completados)
         colores.append(
-            "#63B77A" if estado == "Acreditado"
-            else "#63A4E8" if estado == "Disponible"
-            else "#C7CDD4"
+            "#4ADE80" if estado == "Acreditado"
+            else "#7DD3FC" if estado == "Disponible"
+            else "#64748B"
         )
-    bordes = [
-        "#F39C12" if nodo == TEMA_A_NODO.get(seleccionado) else "#333333"
-        for nodo in grafo.nodes
-    ]
-    fig, ax = plt.subplots(figsize=(10, 5.5))
-    nx.draw_networkx_edges(
-        grafo, posicion, ax=ax, arrows=True, arrowsize=18, edge_color="#777777",
-        node_size=7400,
-    )
-    nx.draw_networkx_nodes(
-        grafo, posicion, ax=ax, node_color=colores, edgecolors=bordes,
-        linewidths=2, node_size=7400,
-    )
+        bordes.append("#5EEAD4" if nodo == TEMA_A_NODO.get(seleccionado) else "#2B3A50")
+    fig, ax = plt.subplots(figsize=(7.4, 4.4), dpi=110)
+    fig.patch.set_facecolor("#131E30")
+    ax.set_facecolor("#131E30")
+    nx.draw_networkx_edges(grafo, posicion, ax=ax, arrows=True, arrowsize=17,
+                           edge_color="#5D7088", width=1.4, node_size=4300)
+    nx.draw_networkx_nodes(grafo, posicion, ax=ax, node_color=colores, edgecolors=bordes,
+                           linewidths=2.4, node_size=4300)
     etiquetas = {nodo: NODO_A_TEMA[nodo].replace(" ", "\n", 2) for nodo in grafo.nodes}
-    nx.draw_networkx_labels(grafo, posicion, labels=etiquetas, ax=ax, font_size=8)
+    nx.draw_networkx_labels(grafo, posicion, labels=etiquetas, ax=ax, font_size=7.5,
+                            font_color="#08111F", font_weight="bold")
     ax.legend(
         handles=[
-            Patch(color="#63B77A", label="Acreditado"),
-            Patch(color="#63A4E8", label="Disponible"),
-            Patch(color="#C7CDD4", label="Bloqueado"),
+            Patch(color="#4ADE80", label="Acreditado"),
+            Patch(color="#7DD3FC", label="Disponible"),
+            Patch(color="#64748B", label="Bloqueado"),
         ],
-        loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.12),
+        loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.14),
+        labelcolor="#B8C5D6",
     )
-    ax.set_title("Grafo de conocimiento · borde naranja: tema seleccionado")
+    ax.set_title("Grafo de conocimiento · borde turquesa: tema seleccionado", color="#B8C5D6", fontsize=9)
     ax.set_axis_off()
     fig.tight_layout()
     return fig
 
 
-def _vista_ruta(motor: Any, catalogo: dict[str, dict[str, str]], estado: dict[str, Any]):
+def _vista_ruta(motor: Any, catalogo: dict[str, dict[str, Any]], estado: dict[str, Any]):
     recomendacion = estado["recomendacion"]
     completados = estado["completados"]
     temas = motor.temas
     porcentaje = round(100 * len(completados) / len(temas))
     ruta = recomendacion["ruta_pendiente"]
-    pasos = "\n".join(
-        f"{indice}. {tema}{' — siguiente recomendado' if indice == 1 else ''}"
-        for indice, tema in enumerate(ruta, 1)
-    )
-    if not pasos:
-        pasos = "_La meta está completada._"
     siguiente = recomendacion.get("siguiente_tema") or "Meta completada"
-    ruta_md = (
-        f"### Mi ruta de aprendizaje\n"
-        f"**Meta:** {estado['perfil']['meta']}  \n"
-        f"**Progreso global:** {len(completados)}/{len(temas)} temas ({porcentaje}%)  \n"
-        f"**Siguiente tema recomendado:** {siguiente}  \n"
-        f"**Estado de la meta:** {recomendacion['estado_meta']}\n\n"
-        f"#### Pasos pendientes\n{pasos}\n\n"
-        f"**Temas bloqueados:** "
-        f"{', '.join(recomendacion.get('bloqueados', [])) or 'Ninguno'}"
+
+    cabecera = vistas.ruta_cabecera_html(
+        estado["perfil"]["meta"], len([t for t in _temas_pertinentes(motor, estado["perfil"]["meta"]) if t in completados]),
+        len(_temas_pertinentes(motor, estado["perfil"]["meta"])),
+        recomendacion.get("estado_meta", "En progreso"), completados,
     )
-    seleccionado = siguiente if siguiente in temas else temas[0]
+
+    estados = {t: _estado_del_tema(motor, t, completados) for t in temas}
+    next_theme = recomendacion.get("siguiente_tema")
+    if next_theme:
+        estado_next, faltantes_next = estados[next_theme]
+        explicacion = (
+            "El motor A* lo coloca como el primer paso disponible para tu meta."
+            if estado_next != "Bloqueado"
+            else "La ruta lo señala, pero todavía tiene prerrequisitos pendientes."
+        )
+        siguiente_html = vistas.siguiente_paso_html(
+            next_theme, explicacion,
+            "Actividad conectada: consulta Mi ruta.",
+            _recursos_html(catalogo, next_theme, motor),
+            faltantes_next if estado_next == "Bloqueado" else (),
+        )
+    else:
+        siguiente_html = vistas.siguiente_paso_html(None, "", None, "")
+
+    lista_html = vistas.lista_pasos_html(temas, estados, next_theme, recomendacion.get("ruta_pendiente", []))
+    seleccionado = next_theme if next_theme in temas else temas[0]
     figura = _dibujar_grafo(motor, completados, seleccionado)
-    detalle = _detalle_tema(motor, catalogo, seleccionado, completados)
-    return ruta_md, figura, detalle, gr.update(value=seleccionado)
+    detalle = vistas.tema_detalle_html(
+        seleccionado, estados[seleccionado][0],
+        [NODO_A_TEMA[n] for n in motor.grafo[TEMA_A_NODO[seleccionado]]["prerrequisitos"]],
+        [t for t in [NODO_A_TEMA[n] for n in motor.grafo[TEMA_A_NODO[seleccionado]]["prerrequisitos"]] if t not in completados],
+        _recursos_html(catalogo, seleccionado, motor),
+        "Consulta Mi ruta", "", es_siguiente=True,
+    )
+    return cabecera, siguiente_html, lista_html, figura, detalle, gr.update(value=seleccionado)
 
 
 def _actualizar_recomendacion(motor: Any, estado: dict[str, Any]) -> None:
     estado["recomendacion"] = motor.consultar(
-        **estado["perfil"],
-        completados=estado["completados"],
+        **estado["perfil"], completados=estado["completados"],
     )
 
 
 def _persistir_perfil(perfil: dict[str, Any]) -> dict[str, Any]:
-    """Guarda preferencias sin convertir declaraciones manuales en acreditaciones."""
     store = simulacion.almacen
     guardado = store.cargar()
     if guardado["simulacion_activa"]:
@@ -288,63 +274,132 @@ def _persistir_perfil(perfil: dict[str, Any]) -> dict[str, Any]:
     return store.guardar(guardado)
 
 
-def _resultado_markdown(resultado: dict[str, Any], retroalimentacion=None) -> str:
+# ── Actividades conectadas ─────────────────────────────────────────────────
+SEGUIMIENTOS = {
+    "PostgreSQL · seguimiento": (obtener_variante_seguimiento, calificar_seguimiento),
+    "PHP MVC · seguimiento": (obtener_variante_seguimiento_mvc, calificar_seguimiento_mvc),
+}
+
+GEMINI_ACTIVO = cargar_config().disponible
+TEXTO_BOTON_IA = "Pedir explicación con IA (Gemini)"
+CARGANDO_IA_HTML = (
+    '<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;">'
+    '<svg width="26" height="26" viewBox="0 0 50 50" aria-hidden="true">'
+    '<circle cx="25" cy="25" r="20" fill="none" stroke="#d0d7de" stroke-width="5"/>'
+    '<circle cx="25" cy="25" r="20" fill="none" stroke="#f97316" stroke-width="5" '
+    'stroke-linecap="round" stroke-dasharray="80 126">'
+    '<animateTransform attributeName="transform" type="rotate" from="0 25 25" '
+    'to="360 25 25" dur="0.9s" repeatCount="indefinite"/></circle></svg>'
+    '<span>Generando la explicación con Gemini… puede tardar unos segundos.</span></div>'
+)
+
+
+def _boton_ia(habilitado: bool, texto: str = TEXTO_BOTON_IA) -> dict[str, Any]:
+    if not GEMINI_ACTIVO:
+        return {"value": "Explicación con IA no disponible (Gemini no configurado)",
+                "interactive": False}
+    return {"value": texto, "interactive": habilitado}
+
+
+def _retroalimentacion_local(resultado: dict[str, Any], formato: str | None):
+    try:
+        return generar_retroalimentacion(resultado, formato)
+    except Exception:
+        return None
+
+
+# ── Resultado ───────────────────────────────────────────────────────────────
+def _resultado_markdown(resultado: dict[str, Any], retroalimentacion=None, motor=None, catalogo=None) -> str:
+    tema = NODO_A_TEMA.get(resultado.get("tema"), resultado.get("tema", "Tema"))
+    try:
+        _ = TEMA_A_NODO[tema]
+        tema_en_grafo = tema
+    except KeyError:
+        tema_en_grafo = None
     if resultado.get("tipo") == "poo":
         respondidos = resultado["respondidos"]
-        return (
-            "### Resultado de la práctica de POO\n"
-            f"**Respuestas entregadas:** {respondidos}/4  \n"
-            "**Estado:** recibido para revisión; esta práctica abierta no asigna "
-            "una calificación automática.\n\n"
-            "#### Lista de revisión\n"
-            "- La clase tiene atributos adecuados y se crean objetos distintos.\n"
-            "- Los métodos representan el comportamiento solicitado.\n"
-            "- El encapsulamiento protege el estado y valida las operaciones.\n"
-            "- Las dos clases colaboran mediante responsabilidades claras.\n\n"
-            f"{renderizar_retroalimentacion(retroalimentacion)}"
+        principal = vistas.resultado_principal_html(
+            resultado, {}, "Práctica de POO · 4 retos"
         )
+        principal = (
+            '<section class="result-card">'
+            '<span class="eyebrow">Resultado verificado</span>'
+            f"<h2>{tema}</h2>"
+            '<p class="muted small">Práctica de POO · 4 retos</p>'
+            f'<div class="score-line"><b>{respondidos} / 4</b><span class="muted">respuestas entregadas</span>'
+            '• Práctica entregada · pendiente de revisión</div>'
+            '<div class="entity-grid" style="margin-top:14px">'
+            '<div><h3>Qué hiciste bien</h3>'
+            '<ul class="criteria-list"><li class="criteria-ok">✓ Entregaste tu solución para revisión.</li>'
+            f'<li class="criteria-ok">✓ Completaste {respondidos} / 4 retos.</li></ul></div>'
+            '<div><h3>Qué debes reforzar</h3>'
+            '<ul class="criteria-list"><li class="criteria-bad">! La práctica no tiene evaluador automático conectado; no se acredita hasta la revisión.</li></ul></div>'
+            '</div></section>'
+        )
+        efecto = (
+            '<section class="route-card"><span class="eyebrow">Cómo afecta tu ruta</span>'
+            "<h3>Práctica entregada · pendiente de revisión</h3>"
+            '<p class="muted">La práctica abierta se entrega para revisión; no acredita el tema por sí sola.</p></section>'
+        )
+        revision = vistas.resultado_revision_html(resultado, {})
+        retro = vistas.resultado_retro_html(resultado)
+        recursos = _recursos_html(catalogo, tema_en_grafo, motor) if catalogo and motor and tema_en_grafo else ""
+        return principal, efecto, revision, retro, vistas.recurso_repaso_html(recursos)
 
-    acreditado = "Acreditado" if resultado["acreditado"] else "Pendiente de acreditación"
+    acreditado = resultado["acreditado"]
     if resultado["tipo"] == "laboratorio":
-        correctas = resultado["puntaje_obtenido"] if "puntaje_obtenido" in resultado else resultado["ejercicios_correctos"]
-        total = resultado["puntaje_maximo"] if "puntaje_maximo" in resultado else resultado["total_ejercicios"]
-        detalle = resultado["detalle"]
+        correctas = resultado.get("puntaje_obtenido", resultado.get("ejercicios_correctos", 0))
+        total = resultado.get("puntaje_maximo", resultado.get("total_ejercicios", 0))
+        detalle = resultado.get("detalle", [])
     else:
-        correctas = resultado["correctas"]
-        total = resultado["total_preguntas"]
-        detalle = resultado["detalle"]
-    lineas = [
-        f"### Resultado: {acreditado}",
-        f"**Puntaje:** {correctas} / {total} ({resultado['puntaje']:.0%})  ",
-        f"**Tema:** {NODO_A_TEMA.get(resultado['tema'], resultado['tema'])}",
-    ]
-    if resultado.get("variante"):
-        lineas.append(f"**Variante:** {resultado['variante']}")
-    lineas.extend(["", "#### Criterios cumplidos"])
+        correctas = resultado.get("correctas", 0)
+        total = resultado.get("total_preguntas", 0)
+        detalle = resultado.get("detalle", [])
+
     cumplidos = resultado.get("criterios_cumplidos", [])
     incumplidos = resultado.get("criterios_incumplidos", [])
-    lineas.append(", ".join(cumplidos) if cumplidos else "Ninguno")
-    lineas.extend(["", "#### Criterios incumplidos"])
-    lineas.append(", ".join(incumplidos) if incumplidos else "Ninguno")
-    lineas.extend(["", "#### Revisión por pregunta"])
-    for item in detalle:
-        estado = "Correcta" if item["correcto"] else "Revisar"
-        lineas.append(f"- **{item.get('id', item.get('concepto'))}:** {estado}")
-        if item.get("error"):
-            lineas.append(f"  - {item['error']}")
-    if resultado.get("conceptos_con_errores"):
-        lineas.extend([
-            "",
-            "**Conceptos para repasar:** " + ", ".join(resultado["conceptos_con_errores"]),
-        ])
-    if resultado["acreditado"]:
-        lineas.extend(["", "La ruta se actualizó con el tema acreditado."])
-    lineas.extend(["", renderizar_retroalimentacion(retroalimentacion)])
-    return "\n".join(lineas)
+    conceptos = list(resultado.get("conceptos_con_errores", []))
+
+    bien = [f"✓ {c}" for c in cumplidos] if cumplidos else ["No hubo criterios cumplidos registrados."]
+    reforzar = [f"! {c}" for c in incumplidos] if incumplidos else []
+    if conceptos:
+        reforzar.append(f"Conceptos a repasar: {', '.join(conceptos)}.")
+    if not reforzar:
+        reforzar = ["No se registraron criterios incumplidos."]
+
+    bien_html = "".join(f'<li class="criteria-ok">{x}</li>' for x in bien)
+    ref_html = "".join(f'<li class="criteria-bad">{x}</li>' for x in reforzar)
+
+    estado_texto = "Tema acreditado" if acreditado else "Tema pendiente"
+    principal = (
+        '<section class="result-card">'
+        '<span class="eyebrow">Resultado verificado</span>'
+        f"<h2>{tema}</h2>"
+        f'<p class="muted small">{resultado.get("tipo", "actividad").capitalize()}</p>'
+        f'<div class="score-line"><b>{correctas} / {total}</b><span class="muted">aciertos o puntos</span>'
+        f'• {estado_texto}</div>'
+        '<div class="entity-grid" style="margin-top:14px">'
+        f'<div><h3>Qué hiciste bien</h3><ul class="criteria-list">{bien_html}</ul></div>'
+        f'<div><h3>Qué debes reforzar</h3><ul class="criteria-list">{ref_html}</ul></div>'
+        '</div></section>'
+    )
+
+    rec = estado.get("recomendacion") if (estado := resultado.get("_estado")) else None
+    siguiente = rec.get("siguiente_tema") if rec else None
+    efecto = (
+        f'<section class="route-card"><span class="eyebrow">Cómo afecta tu ruta</span>'
+        f"<h3>{'Tema acreditado · ruta actualizada' if acreditado else 'Tema sigue pendiente'}</h3>"
+        f'<p><b>Siguiente paso:</b> {siguiente or "revisa Mi ruta"}.</p>'
+        '<p class="muted small">El bloqueo y el cierre de la meta provienen del motor A*.</p></section>'
+    )
+    revision = vistas.resultado_revision_html(resultado, {})
+    retro = vistas.resultado_retro_html(resultado)
+    recursos = _recursos_html(catalogo, tema, motor) if catalogo and motor else ""
+    return principal, efecto, revision, retro, vistas.recurso_repaso_html(recursos)
 
 
+# ── Montaje ─────────────────────────────────────────────────────────────────
 def construir_interfaz(motor: Any) -> gr.Blocks:
-    """Construye la navegación, la ruta, el grafo y los formularios de actividad."""
     catalogo = _cargar_catalogo()
     banco_poo = _cargar_json(_RUTA_POO)
     ejercicios_lab = obtener_ejercicios_laboratorio()
@@ -354,70 +409,137 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
     estado_inicial = _estado_inicial(motor)
     progreso_activo = estado_inicial["simulacion_activa"]
 
+    # ── Disponibilidad de actividades (catálogo visual) ─────────────────
+    _ACTIVIDADES_POR_TEMA = {
+        "Programación Orientada a Objetos": "Práctica de POO · 4 retos · Revisión",
+        "Bases de Datos PostgreSQL": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
+        "Backend con Node.js": "Laboratorio (5 puntos) o seguimiento (5 preguntas)",
+        "Lógica de Programación": "Evaluación no disponible",
+        "Patrón MVC en PHP": "Evaluación no disponible",
+    }
+    estados_actividad = {
+        tema: _estado_del_tema(motor, tema, estado_inicial["completados"])
+        for tema in motor.temas
+    }
+    actividades_por_tema = {
+        tema: _ACTIVIDADES_POR_TEMA.get(tema, "Evaluación no disponible")
+        for tema in motor.temas
+    }
+    catalogo_disponibilidad_html = vistas.catalogo_nota_html(
+        estados_actividad, actividades_por_tema
+    )
+
+    criterios_mvc: list[str] = []
+
     with gr.Blocks(title="Rutas de aprendizaje · Proyecto Integrador") as demo:
         estado = gr.State(estado_inicial)
-        gr.Markdown(
-            "# Recomendador de rutas de aprendizaje\n"
-            "Consulta una ruta personalizada, estudia recursos y completa actividades. "
-            "Las recomendaciones usan datos simulados y son material de apoyo."
+
+        gr.HTML(
+            """
+            <header id="app-header">
+              <div class="brand">
+                <div class="brand-mark" aria-hidden="true">R</div>
+                <div>
+                  <h1>Rutas de aprendizaje</h1>
+                  <p class="tagline">Un recorrido claro: diagnóstico, práctica y ruta que se adapta.</p>
+                </div>
+                <span class="student-note">Simulación local · un estudiante</span>
+              </div>
+            </header>
+            """,
+            container=False,
         )
-        with gr.Tabs(selected="inicio") as navegacion:
+
+        with gr.Tabs(selected="inicio", elem_id="main-nav", overflow_behavior="wrap") as navegacion:
+            # ── Inicio ─────────────────────────────────────────────────────
             with gr.Tab("Inicio", id="inicio"):
-                gr.Markdown(
-                    "## Bienvenido\n"
-                    "Comienza con tu diagnóstico para crear una ruta personalizada. "
-                    "Desde **Mi ruta** podrás revisar el progreso y abrir recursos."
+                inicio_html = vistas.inicio_html(
+                    simulacion_activa=progreso_activo,
+                    error_progreso=estado_inicial.get("error_progreso"),
+                    meta=estado_inicial["perfil"]["meta"],
+                    acreditados_meta=estado_inicial["completados"],
+                    total_meta=len(_temas_pertinentes(motor, estado_inicial["perfil"]["meta"])),
+                    completados_todos=estado_inicial["completados"],
+                    siguiente=estado_inicial["recomendacion"].get("siguiente_tema"),
+                    estado_meta=estado_inicial["recomendacion"].get("estado_meta", "En progreso"),
+                    actividad_siguiente=None,
+                    intentos=len(estado_inicial["intentos"]),
                 )
-                resumen_inicio = gr.Markdown(
-                    f"Progreso local recuperado: {len(estado_inicial['intentos'])} intento(s), "
-                    f"{len(estado_inicial['completados'])} tema(s) acreditado(s)."
-                    + (f"\n\n**Error de lectura:** {estado_inicial['error_progreso']}" if estado_inicial.get("error_progreso") else "")
-                )
-                iniciar = gr.Button(
-                    "Continuar aprendizaje" if progreso_activo else "Iniciar simulación",
-                    variant="primary",
-                )
-                reiniciar_simulacion = gr.Button("Reiniciar simulación", variant="stop")
+                inicio_resumen = gr.HTML(inicio_html, elem_id="inicio-resumen")
+                with gr.Row(elem_classes=["button-row"]):
+                    iniciar = gr.Button(
+                        "Continuar aprendizaje" if progreso_activo else "Iniciar simulación",
+                        variant="primary",
+                    )
+                    reiniciar_simulacion = gr.Button("Reiniciar simulación", variant="stop")
+
+            # ── Diagnóstico ────────────────────────────────────────────────
             with gr.Tab("Diagnóstico", id="diagnostico"):
-                gr.Markdown("## Perfil de aprendizaje")
-                with gr.Row():
-                    nivel = gr.Radio(NIVELES, value=estado_inicial["perfil"]["nivel"], label="Nivel previo")
-                    formato = gr.Radio(FORMATOS, value=estado_inicial["perfil"]["formato"], label="Formato preferido")
-                with gr.Row():
-                    tema = gr.Dropdown(motor.temas, value=estado_inicial["perfil"]["tema"], label="Tema actual")
-                    meta = gr.Dropdown(
-                        motor.temas, value=estado_inicial["perfil"]["meta"], label="Meta de aprendizaje",
-                    )
-                with gr.Row():
-                    tiempo = gr.Slider(5, 300, value=estado_inicial["perfil"]["tiempo"], step=1, label="Tiempo de interacción (s)")
-                    errores = gr.Slider(0, 100, value=estado_inicial["perfil"]["errores"], step=1, label="Tasa de errores (%)")
-                with gr.Row():
-                    gr.Markdown(
-                        "Las acreditaciones previas se restauran desde intentos calificados. "
-                        "Completa un laboratorio para acreditar un tema; no se acredita con casillas manuales."
-                    )
-                    fallos = gr.Slider(0, 6, value=estado_inicial["perfil"]["fallos"], step=1, label="Fallos consecutivos")
-                    abandono = gr.Checkbox(value=estado_inicial["perfil"]["abandono"], label="Abandonó la actividad")
-                diagnosticar = gr.Button("Generar / actualizar mi ruta", variant="primary")
-                estado_diagnostico = gr.Markdown()
+                paso_diagnostico = gr.State(1)
+                diag_encabezado = gr.HTML(
+                    "<span class='step-label'>Paso 1 de 3</span><h2>¿Qué quieres aprender?</h2>"
+                )
+                with gr.Group(visible=True, elem_classes=["card"]) as diag_paso_1:
+                    gr.HTML("<span class='eyebrow'>Paso 1</span><h3>Elige tu meta</h3>"
+                            "<p class='small muted'>La meta define los temas pertinentes y el progreso que verás.</p>")
+                    meta = gr.Dropdown(motor.temas, value=estado_inicial["perfil"]["meta"], label="Meta de aprendizaje")
+                    meta_detalle = gr.HTML(_meta_detalle(motor, catalogo, estado_inicial["perfil"]["meta"], estado_inicial["completados"]))
+                with gr.Group(visible=False, elem_classes=["card"]) as diag_paso_2:
+                    gr.HTML("<span class='eyebrow'>Paso 2</span><h3>Preferencias de estudio</h3>")
+                    with gr.Row():
+                        nivel = gr.Radio(NIVELES, value=estado_inicial["perfil"]["nivel"], label="Nivel previo")
+                        formato = gr.Radio(FORMATOS, value=estado_inicial["perfil"]["formato"], label="Formato preferido")
+                    with gr.Accordion("Parámetros de simulación", open=False):
+                        gr.HTML("<p class='small muted'>Estos valores describen el contexto simulado del estudiante.</p>")
+                        tema_actual = gr.Dropdown(motor.temas, value=estado_inicial["perfil"]["tema"], label="Tema actual")
+                        with gr.Row():
+                            tiempo = gr.Slider(5, 300, value=estado_inicial["perfil"]["tiempo"], step=1, label="Tiempo de interacción (s)")
+                            errores = gr.Slider(0, 100, value=estado_inicial["perfil"]["errores"], step=1, label="Tasa de errores (%)")
+                        with gr.Row():
+                            fallos = gr.Slider(0, 6, value=estado_inicial["perfil"]["fallos"], step=1, label="Fallos consecutivos")
+                            abandono = gr.Checkbox(value=estado_inicial["perfil"]["abandono"], label="Abandonó la actividad")
+                with gr.Group(visible=False, elem_classes=["card"]) as diag_paso_3:
+                    gr.HTML("<span class='eyebrow'>Paso 3</span><h3>Qué conocimientos quieres evaluar</h3>")
+                    acreditaciones_diag = gr.HTML(vistas.acreditaciones_html(estado_inicial["completados"]))
+                    tema_evaluar = gr.Dropdown(motor.temas, value=estado_inicial["perfil"]["tema"], label="Tema que quieres evaluar")
+                    disponibilidad_diag = gr.HTML(_disponibilidad(motor, estado_inicial["perfil"]["tema"], estado_inicial["completados"]))
+                    with gr.Row(elem_classes=["button-row"]):
+                        evaluar_tema = gr.Button("Evaluar este tema", variant="secondary")
+                        generar_ruta_btn = gr.Button("Generar / actualizar mi ruta", variant="primary")
+                with gr.Row(elem_classes=["button-row"]):
+                    diag_anterior = gr.Button("Anterior", visible=False)
+                    diag_siguiente = gr.Button("Siguiente", variant="primary")
+                aviso_diag = gr.HTML()
 
+            # ── Mi ruta ────────────────────────────────────────────────────
             with gr.Tab("Mi ruta", id="ruta"):
-                resumen_ruta = gr.Markdown()
-                grafo = gr.Plot(label="Grafo de conocimiento")
-                tema_grafo = gr.Dropdown(
-                    motor.temas, value=motor.temas[0], label="Explorar un tema del grafo",
-                )
-                detalle_grafo = gr.Markdown()
-                actualizar_ruta = gr.Button("Actualizar ruta")
+                vr = _vista_ruta(motor, catalogo, estado_inicial)
+                ruta_cabecera = gr.HTML(vr[0])
+                siguiente_paso = gr.HTML(vr[1])
+                with gr.Row(elem_classes=["button-row"]):
+                    abrir_siguiente = gr.Button("Iniciar actividad", variant="primary")
+                    actualizar_ruta = gr.Button("Actualizar ruta")
+                    cambiar_meta = gr.Button("Cambiar meta")
+                with gr.Row(elem_classes=["route-layout"]):
+                    with gr.Column(elem_classes=["route-main"]):
+                        lista_pasos = gr.HTML(vr[2])
+                    with gr.Column(elem_classes=["route-side"]):
+                        grafo = gr.Plot(value=vr[3], label="Grafo de conocimiento")
+                        tema_grafo = gr.Dropdown(motor.temas, value=estado_inicial["perfil"]["tema"], label="Explorar un tema del grafo")
+                        tema_detalle = gr.HTML(vr[4])
+                        ir_prerrequisito = gr.Button("Ir al prerrequisito")
+                ruta_aviso = gr.HTML()
+                tema_grafo_sel = vr[5]
 
+            # ── Actividad ──────────────────────────────────────────────────
             with gr.Tab("Actividad", id="actividad"):
-                gr.Markdown(
-                    "## Actividades\n"
-                    "Selecciona una práctica. Los laboratorios y seguimientos de PostgreSQL, "
-                    "Node.js y Patrón MVC en PHP se califican automáticamente; la práctica "
-                    "abierta de POO se entrega para revisión."
+                gr.HTML(
+                    "<span class='eyebrow'>Catálogo de actividades</span>"
+                    "<h2>Elige qué quieres practicar</h2>"
+                    "<p class='muted reading'>Cada tarjeta indica el tema, el tipo, la cantidad de ejercicios y el modo de evaluación real disponible.</p>"
                 )
-                tipo_actividad = gr.Radio(
+                gr.HTML(catalogo_disponibilidad_html, elem_id="catalogo-disponibilidad")
+                actividad_selector = gr.Radio(
                     [
                         "POO · clases y objetos",
                         "PostgreSQL · laboratorio",
@@ -427,72 +549,54 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                         "PHP MVC · laboratorio",
                         "PHP MVC · seguimiento",
                     ],
-                    label="Actividad",
-                    value=None,
+                    value=None, label="Actividad",
                 )
                 instrucciones = gr.Markdown()
 
-                with gr.Group(visible=False) as grupo_poo:
-                    gr.Markdown("### Programación Orientada a Objetos · ejercicios asignados")
+                with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_poo:
+                    gr.HTML("### Programación Orientada a Objetos · ejercicios asignados")
                     respuestas_poo = []
                     for ejercicio in banco_poo["ejercicios"]:
-                        gr.Markdown(
-                            f"**{ejercicio['id']} · {ejercicio['concepto']} — "
-                            f"{ejercicio['titulo']}**\n\n{ejercicio['enunciado']}"
+                        gr.HTML(
+                            f"<h4>{ejercicio['id']} · {ejercicio['concepto']} — {ejercicio['titulo']}</h4>"
+                            f"<p class='reading'>{ejercicio['enunciado']}</p>"
                         )
-                        respuestas_poo.append(
-                            gr.Textbox(lines=4, label=f"Respuesta {ejercicio['id']}")
-                        )
+                        respuestas_poo.append(gr.Textbox(lines=4, label=f"Respuesta {ejercicio['id']}"))
                     enviar_poo = gr.Button("Entregar práctica POO", variant="primary")
 
                 with gr.Group(visible=False) as grupo_laboratorio:
-                    gr.Markdown("### Laboratorio PostgreSQL · cuatro ejercicios")
+                    gr.HTML("### Laboratorio PostgreSQL · cuatro ejercicios")
                     respuestas_lab = []
                     for ejercicio in ejercicios_lab:
-                        gr.Markdown(
-                            f"**{ejercicio['id']} · {ejercicio['concepto']} "
-                            f"({ejercicio['dificultad']})**\n\n{ejercicio['enunciado']}"
+                        gr.HTML(
+                            f"<h4>{ejercicio['id']} · {ejercicio['concepto']} ({ejercicio['dificultad']})</h4>"
+                            f"<p class='reading'>{ejercicio['enunciado']}</p>"
                         )
-                        respuestas_lab.append(
-                            gr.Textbox(lines=3, label=f"Consulta SQL · {ejercicio['id']}")
-                        )
+                        respuestas_lab.append(gr.Textbox(lines=3, label=f"Consulta SQL · {ejercicio['id']}"))
                     enviar_lab = gr.Button("Calificar laboratorio", variant="primary")
 
                 with gr.Group(visible=False) as grupo_mvc:
-                    gr.Markdown("### Laboratorio Patrón MVC en PHP · cuatro ejercicios")
+                    gr.HTML("### Laboratorio Patrón MVC en PHP · cuatro ejercicios")
                     respuestas_mvc = []
-                    criterios_mvc = []
                     for ejercicio in ejercicios_mvc:
-                        codigo = (f"\n\n```php\n{ejercicio['codigo']}\n```"
-                                  if ejercicio.get("codigo") else "")
-                        gr.Markdown(
-                            f"**{ejercicio['id']} · "
-                            f"{conceptos_mvc.get(ejercicio['concepto'], ejercicio['concepto'])} "
-                            f"({ejercicio['dificultad']})**\n\n{ejercicio['enunciado']}{codigo}"
+                        codigo = (f"\n\n```php\n{ejercicio['codigo']}\n```" if ejercicio.get("codigo") else "")
+                        gr.HTML(
+                            f"<h4>{ejercicio['id']} · {conceptos_mvc.get(ejercicio['concepto'], ejercicio['concepto'])} ({ejercicio['dificultad']})</h4>"
+                            f"<p class='reading'>{ejercicio['enunciado']}{codigo}</p>"
                         )
                         for criterio in ejercicio["criterios"]:
                             criterios_mvc.append(criterio["id"])
-                            respuestas_mvc.append(gr.Radio(
-                                criterio["opciones"], label=criterio["pregunta"], value=None,
-                            ))
+                            respuestas_mvc.append(gr.Radio(criterio["opciones"], label=criterio["pregunta"], value=None))
                     enviar_mvc = gr.Button("Calificar laboratorio MVC", variant="primary")
 
                 with gr.Group(visible=False) as grupo_seguimiento:
-                    gr.Markdown("### Actividad de seguimiento · cinco preguntas")
-                    preguntas_seg = []
-                    respuestas_seg = []
-                    for indice in range(5):
-                        preguntas_seg.append(gr.Markdown())
-                        respuestas_seg.append(
-                            gr.Radio([], label=f"Respuesta {indice + 1}")
-                        )
+                    gr.HTML("### Actividad de seguimiento · cinco preguntas")
+                    preguntas_seg = [gr.Markdown() for _ in range(5)]
+                    respuestas_seg = [gr.Radio([], label=f"Respuesta {i + 1}") for i in range(5)]
                     enviar_seg = gr.Button("Calificar seguimiento", variant="primary")
 
                 with gr.Group(visible=False) as grupo_laboratorio_node:
-                    gr.Markdown(
-                        "### Backend con Node.js · laboratorio diagnóstico (5 puntos)\n"
-                        "Responde con los datos de la operación. El laboratorio acredita con 4/5 puntos."
-                    )
+                    gr.HTML("### Backend con Node.js · laboratorio diagnóstico (5 puntos)")
                     respuestas_lab_node = []
                     ejemplos_node = (
                         "Método y estado HTTP (ejemplo: GET, 200)",
@@ -501,143 +605,179 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                         "Crear y consultar (ejemplo: POST /productos 201; GET /productos 200)",
                     )
                     for ejercicio, placeholder in zip(ejercicios_lab_node, ejemplos_node):
-                        gr.Markdown(
-                            f"**{ejercicio['id']} · {ejercicio['concepto']} "
-                            f"({ejercicio['dificultad']})**\n\n{ejercicio['enunciado']}"
+                        gr.HTML(
+                            f"<h4>{ejercicio['id']} · {ejercicio['concepto']} ({ejercicio['dificultad']})</h4>"
+                            f"<p class='reading'>{ejercicio['enunciado']}</p>"
                         )
-                        respuestas_lab_node.append(
-                            gr.Textbox(
-                                lines=2,
-                                label=f"Respuesta Node.js · {ejercicio['id']}",
-                                placeholder=placeholder,
-                            )
-                        )
+                        respuestas_lab_node.append(gr.Textbox(lines=2, label=f"Respuesta Node.js · {ejercicio['id']}", placeholder=placeholder))
                     enviar_lab_node = gr.Button("Calificar laboratorio Node.js", variant="primary")
 
                 with gr.Group(visible=False) as grupo_seguimiento_node:
-                    gr.Markdown("### Backend con Node.js · seguimiento (5 preguntas)")
+                    gr.HTML("### Backend con Node.js · seguimiento (5 preguntas)")
                     preguntas_seg_node = [gr.Markdown() for _ in range(5)]
-                    respuestas_seg_node = [
-                        gr.Radio([], label=f"Respuesta Node.js {indice + 1}")
-                        for indice in range(5)
-                    ]
+                    respuestas_seg_node = [gr.Radio([], label=f"Respuesta Node.js {i + 1}") for i in range(5)]
                     enviar_seg_node = gr.Button("Calificar seguimiento Node.js", variant="primary")
 
+            # ── Resultados ─────────────────────────────────────────────────
             with gr.Tab("Resultados", id="resultados"):
-                resultados = gr.Markdown(
-                    "Aún no hay resultados. Completa una actividad para ver aquí el resumen."
+                resultado_principal = gr.HTML(
+                    "<section class='empty-card'><span class='eyebrow'>Resultados</span>"
+                    "<h2>Aún no hay resultados</h2><p class='muted'>Completa una actividad para revisar el puntaje, los criterios y su efecto en la ruta.</p></section>"
                 )
-                with gr.Group():
-                    gr.Markdown(
-                        "#### Explicación con IA\n"
-                        f"_{estado_gemini()}_  \n"
-                        "La calificación, el guardado y la ruta ya están listos; la explicación "
-                        "es un complemento. Si Gemini no responde, verás la retroalimentación local."
-                    )
-                    pedir_ia = gr.Button(**_boton_ia(False))
-                    cargando_ia = gr.HTML(CARGANDO_IA_HTML, visible=False, js_on_load=None)
-                    explicacion_ia = gr.Markdown()
-                with gr.Row():
-                    volver_ruta = gr.Button("Volver a Mi ruta")
-                    reintentar = gr.Button("Reintentar / elegir otra actividad")
+                resultado_efecto = gr.HTML()
+                with gr.Accordion("Revisión por pregunta o ejercicio", open=False):
+                    resultado_revision = gr.HTML("<p class='muted small'>El detalle aparecerá después de calificar.</p>")
+                with gr.Accordion("Comentario y refuerzo", open=False):
+                    resultado_retro = gr.HTML()
+                resultado_recurso = gr.HTML()
+                with gr.Row(elem_classes=["button-row"]):
+                    reintentar = gr.Button("Reintentar")
+                    otra_actividad = gr.Button("Elegir otra actividad")
+                    volver_ruta = gr.Button("Volver a Mi ruta", variant="primary")
+                with gr.Row(elem_classes=["button-row"]):
+                    volver_diagnostico = gr.Button("Volver al diagnóstico")
+                    continuar_siguiente = gr.Button("Continuar con el siguiente tema")
+                    elegir_meta = gr.Button("Elegir otra meta", visible=False)
 
-        def abrir_inicio(estado_actual):
+                gr.HTML(
+                    "<div style='margin-top:16px'><h4>Explicación con IA</h4>"
+                    f"<p class='muted small'>{estado_gemini()}</p>"
+                    "<p class='muted small'>La calificación, el guardado y la ruta ya están listos; la explicación es un complemento.</p></div>"
+                )
+                pedir_ia = gr.Button(**_boton_ia(False))
+                cargando_ia = gr.HTML(CARGANDO_IA_HTML, visible=False)
+                explicacion_ia = gr.Markdown()
+
+        # ── Callbacks ──────────────────────────────────────────────────────
+
+        def abrir_inicio(estado_actual: dict[str, Any]):
             if not estado_actual.get("simulacion_activa"):
-                return gr.update(selected="diagnostico"), gr.update(), gr.update(), gr.update(), gr.update()
-            md, figura, detalle, tema_update = _vista_ruta(motor, catalogo, estado_actual)
-            return gr.update(selected="ruta"), md, figura, detalle, tema_update
+                return (gr.update(selected="diagnostico"), gr.update(), gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+            vr = _vista_ruta(motor, catalogo, estado_actual)
+            return (gr.update(selected="ruta"), vr[0], vr[1], vr[2], vr[3], vr[4], vr[5])
 
         iniciar.click(
-            fn=abrir_inicio, inputs=estado,
-            outputs=[navegacion, resumen_ruta, grafo, detalle_grafo, tema_grafo],
+            abrir_inicio, estado,
+            [navegacion, ruta_cabecera, siguiente_paso, lista_pasos, grafo, tema_detalle, tema_grafo],
         )
 
         def reiniciar_desde_interfaz():
             simulacion.reiniciar()
             nuevo = _estado_inicial(motor)
+            vr = _vista_ruta(motor, catalogo, nuevo)
+            inicio_html = vistas.inicio_html(
+                simulacion_activa=True, error_progreso=None, meta=nuevo["perfil"]["meta"],
+                acreditados_meta=[], total_meta=1, completados_todos=[], siguiente=None,
+                estado_meta="En progreso", actividad_siguiente=None, intentos=0,
+            )
             return (
-                nuevo, gr.update(selected="inicio"), "Progreso local: 0 intentos, 0 temas acreditados.",
-                "Selecciona una meta y comienza.", gr.update(value=None), "",
-                gr.update(value=motor.temas[0]),
+                nuevo, gr.update(selected="inicio"), inicio_html,
+                vr[0], vr[1], vr[2], vr[3], vr[4], vr[5],
                 gr.update(value="Iniciar simulación"),
                 gr.update(value="Principiante"), gr.update(value="Visual"),
                 gr.update(value=motor.temas[0]), gr.update(value="Backend con Node.js"),
                 gr.update(value=120), gr.update(value=50), gr.update(value=0),
                 gr.update(value=False),
-                "Aún no hay resultados. Completa una actividad para ver aquí el resumen.",
+                "<section class='empty-card'><span class='eyebrow'>Resultados</span>"
+                "<h2>Aún no hay resultados</h2><p class='muted'>Completa una actividad para ver aquí el resumen.</p></section>",
                 "", gr.update(**_boton_ia(False)), gr.update(visible=False),
             )
 
         reiniciar_simulacion.click(
-            fn=reiniciar_desde_interfaz,
-            outputs=[estado, navegacion, resumen_inicio, resumen_ruta, grafo,
-                     detalle_grafo, tema_grafo, iniciar, nivel,
-                     formato, tema, meta, tiempo, errores, fallos, abandono,
-                     resultados, explicacion_ia, pedir_ia, cargando_ia],
+            reiniciar_desde_interfaz,
+            outputs=[estado, navegacion, inicio_resumen, ruta_cabecera, siguiente_paso,
+                     lista_pasos, grafo, tema_detalle, tema_grafo,
+                     iniciar, nivel, formato, tema_actual, meta, tiempo, errores,
+                     fallos, abandono, resultado_principal, explicacion_ia, pedir_ia, cargando_ia],
         )
 
-        def generar_ruta(
-            nivel_valor, formato_valor, tema_valor, tiempo_valor, errores_valor,
-            meta_valor, fallos_valor, abandono_valor, estado_actual,
-        ):
-            nuevo = dict(estado_actual)
-            nuevo["perfil"] = {
-                "nivel": nivel_valor,
-                "formato": formato_valor,
-                "tema": tema_valor,
-                "tiempo": tiempo_valor,
-                "errores": errores_valor,
-                "meta": meta_valor,
-                "fallos": int(fallos_valor),
-                "abandono": bool(abandono_valor),
-            }
+        meta.change(
+            lambda m, s: _meta_detalle(motor, catalogo, m, s["completados"]),
+            [meta, estado], meta_detalle,
+        )
+        tema_evaluar.change(
+            lambda t, s: _disponibilidad(motor, t, s["completados"]),
+            [tema_evaluar, estado], disponibilidad_diag,
+        )
+
+        def ir_a_diagnostico(estado_actual, paso: int = 1):
+            return diag_render(paso, estado_actual["perfil"]["tema"], estado_actual)
+
+        def diag_render(paso: int, tema_valor: str, estado_actual: dict[str, Any]):
+            paso = max(1, min(3, int(paso)))
+            titulos = {1: "¿Qué quieres aprender?", 2: "¿Cómo prefieres estudiar?", 3: "¿Qué conocimientos quieres evaluar?"}
+            encabezado = f"<span class='step-label'>Paso {paso} de 3</span><h2>{titulos[paso]}</h2>"
+            return (
+                paso, gr.update(visible=paso == 1), gr.update(visible=paso == 2), gr.update(visible=paso == 3),
+                encabezado, gr.update(visible=paso > 1), gr.update(visible=paso < 3),
+                vistas.acreditaciones_html(estado_actual["completados"]),
+                _disponibilidad(motor, tema_valor, estado_actual["completados"]),
+            )
+
+        diag_siguiente.click(
+            lambda p, t, s: diag_render(int(p) + 1, t, s),
+            [paso_diagnostico, tema_evaluar, estado],
+            [paso_diagnostico, diag_paso_1, diag_paso_2, diag_paso_3, diag_encabezado, diag_anterior, diag_siguiente, acreditaciones_diag, disponibilidad_diag],
+        )
+        diag_anterior.click(
+            lambda p, t, s: diag_render(int(p) - 1, t, s),
+            [paso_diagnostico, tema_evaluar, estado],
+            [paso_diagnostico, diag_paso_1, diag_paso_2, diag_paso_3, diag_encabezado, diag_anterior, diag_siguiente, acreditaciones_diag, disponibilidad_diag],
+        )
+        home_cambiar_meta = None  # no existe en esta versión; se usa cambiar_meta/elegir_meta desde resultados
+
+        def generar_ruta(nivel_v, formato_v, tema_v, tiempo_v, errores_v, meta_v, fallos_v, abandono_v, estado_actual):
+            perfil = {"nivel": nivel_v, "formato": formato_v, "tema": tema_v, "tiempo": tiempo_v,
+                      "errores": errores_v, "meta": meta_v, "fallos": int(fallos_v), "abandono": bool(abandono_v)}
             try:
-                guardado = _persistir_perfil(nuevo["perfil"])
+                guardado = _persistir_perfil(perfil)
             except (ErrorProgreso, ValueError) as exc:
-                return (
-                    estado_actual, gr.update(), gr.update(), gr.update(), gr.update(),
-                    f"No se guardó el perfil ni se actualizó el progreso: {exc}",
-                    gr.update(), gr.update(),
-                )
+                return (estado_actual, f"No se guardó el perfil: {exc}", gr.update(), gr.update(), gr.update(), gr.update())
+            nuevo = dict(estado_actual)
+            nuevo["perfil"] = perfil
             nuevo["completados"] = temas_acreditados(guardado)
             nuevo["intentos"] = guardado["intentos"]
             nuevo["simulacion_activa"] = True
             _actualizar_recomendacion(motor, nuevo)
-            md, figura, detalle, tema_update = _vista_ruta(motor, catalogo, nuevo)
+            vr = _vista_ruta(motor, catalogo, nuevo)
+            inicio_html = vistas.inicio_html(
+                simulacion_activa=True, error_progreso=None, meta=meta_v,
+                acreditados_meta=nuevo["completados"],
+                total_meta=len(_temas_pertinentes(motor, meta_v)),
+                completados_todos=nuevo["completados"], siguiente=nuevo["recomendacion"].get("siguiente_tema"),
+                estado_meta=nuevo["recomendacion"].get("estado_meta", "En progreso"),
+                actividad_siguiente=None, intentos=len(nuevo["intentos"]),
+            )
             return (
-                nuevo, md, figura, detalle, tema_update,
+                nuevo, inicio_html, vr[0], vr[1], vr[2], vr[3], vr[4], vr[5],
                 f"Ruta actualizada. Siguiente tema: **{nuevo['recomendacion'].get('siguiente_tema') or 'Meta completada'}**.",
-                f"Progreso local recuperado: {len(nuevo['intentos'])} intento(s), "
-                f"{len(nuevo['completados'])} tema(s) acreditado(s).",
+                f"Progreso local recuperado: {len(nuevo['intentos'])} intento(s), {len(nuevo['completados'])} tema(s) acreditado(s).",
                 gr.update(value="Continuar aprendizaje"),
             )
 
-        diagnosticar.click(
-            fn=generar_ruta,
-            inputs=[
-                nivel, formato, tema, tiempo, errores, meta, fallos, abandono, estado,
-            ],
-            outputs=[
-                estado, resumen_ruta, grafo, detalle_grafo, tema_grafo,
-                estado_diagnostico, resumen_inicio, iniciar,
-            ],
-        )
-        actualizar_ruta.click(
-            fn=lambda actual: _vista_ruta(motor, catalogo, actual),
-            inputs=estado,
-            outputs=[resumen_ruta, grafo, detalle_grafo, tema_grafo],
+        generar_ruta_btn.click(
+            generar_ruta,
+            [nivel, formato, tema_actual, tiempo, errores, meta, fallos, abandono, estado],
+            [estado, inicio_resumen, ruta_cabecera, siguiente_paso, lista_pasos, grafo, tema_detalle, tema_grafo,
+             aviso_diag, iniciar],
         )
 
-        def mostrar_tema(tema_valor, estado_actual):
+        actualizar_ruta.click(
+            lambda actual: _vista_ruta(motor, catalogo, actual),
+            estado, [ruta_cabecera, siguiente_paso, lista_pasos, grafo, tema_detalle, tema_grafo],
+        )
+
+        def mostrar_tema(tema_v, estado_actual):
             return (
-                _detalle_tema(motor, catalogo, tema_valor, estado_actual["completados"]),
-                _dibujar_grafo(motor, estado_actual["completados"], tema_valor),
+                vistas.tema_detalle_html(
+                    tema_v, _estado_del_tema(motor, tema_v, estado_actual["completados"])[0],
+                    [], [], _recursos_html(catalogo, tema_v, motor), "", "", es_siguiente=False,
+                ),
+                _dibujar_grafo(motor, estado_actual["completados"], tema_v),
             )
 
         tema_grafo.change(
-            fn=mostrar_tema,
-            inputs=[tema_grafo, estado],
-            outputs=[detalle_grafo, grafo],
+            mostrar_tema, [tema_grafo, estado], [tema_detalle, grafo],
         )
 
         def seleccionar_actividad(seleccion, estado_actual):
@@ -646,20 +786,16 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             nuevo["inicio_actividad"] = time.monotonic() if seleccion else None
             nuevo["variante_activa"] = None
             node_id = TEMA_A_NODO["Backend con Node.js"]
-            node_prerequisitos = [
-                NODO_A_TEMA[nodo]
-                for nodo in motor.grafo[node_id]["prerrequisitos"]
-                if NODO_A_TEMA[nodo] not in nuevo["completados"]
-            ]
+            node_prerrequisitos = [NODO_A_TEMA[n] for n in motor.grafo[node_id]["prerrequisitos"]
+                                   if NODO_A_TEMA[n] not in nuevo["completados"]]
             node_followup_allowed = (
-                seleccion == "Backend con Node.js · seguimiento"
-                and not node_prerequisitos
+                seleccion == "Backend con Node.js · seguimiento" and not node_prerrequisitos
             )
             visibilidad = [
                 gr.update(visible=seleccion == "POO · clases y objetos"),
                 gr.update(visible=seleccion == "PostgreSQL · laboratorio"),
                 gr.update(visible=seleccion == "PHP MVC · laboratorio"),
-                gr.update(visible=seleccion in SEGUIMIENTOS),  # PostgreSQL y MVC
+                gr.update(visible=seleccion in SEGUIMIENTOS),
                 gr.update(visible=seleccion == "Backend con Node.js · laboratorio diagnóstico"),
                 gr.update(visible=node_followup_allowed),
             ]
@@ -667,6 +803,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             radios = [gr.update(choices=[], value=None) for _ in range(5)]
             prompts_node = [gr.update(value="") for _ in range(5)]
             radios_node = [gr.update(choices=[], value=None) for _ in range(5)]
+            instruccion = "Selecciona una actividad para mostrar sus ejercicios."
             if seleccion == "POO · clases y objetos":
                 instruccion = "Responde los cuatro ejercicios. La entrega se acompaña de una lista de revisión, no de una nota automática."
             elif seleccion == "PostgreSQL · laboratorio":
@@ -677,63 +814,31 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             elif seleccion in SEGUIMIENTOS:
                 obtener_variante, _ = SEGUIMIENTOS[seleccion]
                 try:
-                    variante, preguntas = obtener_variante(
-                        nuevo["variantes_usadas"]
-                    )
+                    variante, preguntas = obtener_variante(nuevo["variantes_usadas"])
                 except ValueError as exc:
                     instruccion = f"**No se puede iniciar el seguimiento:** {exc}"
                 else:
                     nuevo["variante_activa"] = variante
                     for indice, pregunta in enumerate(preguntas):
-                        prompts[indice] = gr.update(
-                            value=f"**{pregunta['id']} · {pregunta['concepto']}**\n\n{pregunta['enunciado']}"
-                        )
-                        radios[indice] = gr.update(
-                            choices=pregunta["opciones"], value=None,
-                        )
-                    instruccion = f"Variante asignada: **{variante}**. Se selecciona una variante no utilizada anteriormente."
+                        prompts[indice] = gr.update(value=f"**{pregunta['id']} · {pregunta['concepto']}**\n\n{pregunta['enunciado']}")
+                        radios[indice] = gr.update(choices=pregunta["opciones"], value=None)
+                    instruccion = f"Variante asignada: **{variante}**."
             elif seleccion == "Backend con Node.js · laboratorio diagnóstico":
-                instruccion = (
-                    "Resuelve los cuatro ejercicios. La rúbrica suma cinco puntos y acredita "
-                    "con al menos 4/5. Este laboratorio es la vía evaluada para diagnosticar Node.js."
-                )
+                instruccion = "Resuelve los cuatro ejercicios. Se acredita con al menos 4/5 puntos."
             elif seleccion == "Backend con Node.js · seguimiento":
-                if node_prerequisitos:
-                    faltantes = ", ".join(node_prerequisitos)
-                    instruccion = f"Actividad bloqueada. Primero acredita: **{faltantes}**."
+                if node_prerrequisitos:
+                    instruccion = f"Actividad bloqueada. Primero acredita: {', '.join(node_prerrequisitos)}."
                 else:
                     try:
-                        variante, preguntas = obtener_variante_seguimiento_node(
-                            nuevo["variantes_usadas"]
-                        )
+                        variante, preguntas = obtener_variante_seguimiento_node(nuevo["variantes_usadas"])
                     except ValueError as exc:
                         instruccion = f"**No se puede iniciar el seguimiento:** {exc}"
                     else:
                         nuevo["variante_activa"] = variante
                         for indice, pregunta in enumerate(preguntas):
-                            prompts_node[indice] = gr.update(
-                                value=f"**{pregunta['id']} · {pregunta['concepto']}**\n\n{pregunta['pregunta']}"
-                            )
-                            # Agrega distractores fijos para que la respuesta no sea la única opción.
-                            distractores = {
-                                "GET": ["POST", "PUT", "DELETE"],
-                                "200": ["201", "400", "404"],
-                                "201": ["200", "400", "404"],
-                                "req.params.id": ["req.body.id", "req.query.id", "req.headers.id"],
-                                "req.params": ["req.body", "req.query", "req.headers"],
-                                "Sí": ["No"],
-                                "No": ["Sí"],
-                                "POST": ["GET", "PUT", "DELETE"],
-                            }
-                            radios_node[indice] = gr.update(
-                                choices=[pregunta["respuesta"]] + distractores.get(pregunta["respuesta"], []),
-                                value=None,
-                            )
-                        instruccion = (
-                            f"Variante asignada: **{variante}**. Acredita con 4 de 5 respuestas correctas."
-                        )
-            else:
-                instruccion = "Selecciona una actividad para mostrar sus ejercicios."
+                            prompts_node[indice] = gr.update(value=f"**{pregunta['id']} · {pregunta['concepto']}**\n\n{pregunta['pregunta']}")
+                            radios_node[indice] = gr.update(choices=[pregunta["respuesta"]] + ["Opción A", "Opción B", "Opción C"], value=None)
+                        instruccion = f"Variante asignada: **{variante}**."
             return (
                 *visibilidad, *prompts, *radios, *prompts_node, *radios_node,
                 instruccion, nuevo,
@@ -746,100 +851,72 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             *preguntas_seg_node, *respuestas_seg_node,
             instrucciones, estado,
         ]
+        tipo_actividad = actividad_selector
         tipo_actividad.change(
-            fn=seleccionar_actividad,
-            inputs=[tipo_actividad, estado],
-            outputs=seleccion_outputs,
+            seleccionar_actividad, [tipo_actividad, estado], seleccion_outputs,
         )
 
         def registrar_resultado(resultado, estado_actual):
             try:
                 if resultado.get("tipo") == "poo":
                     persistible = {
-                        "id": str(uuid4()),
-                        "tema": "Programación Orientada a Objetos",
-                        "tipo_actividad": "Práctica POO",
-                        "puntaje": resultado["respondidos"],
-                        "puntaje_maximo": resultado["total"],
-                        "tiempo_segundos": 0,
-                        "conceptos_con_error": [],
-                        "aprobado": False,
+                        "id": str(uuid4()), "tema": "Programación Orientada a Objetos",
+                        "tipo_actividad": "Práctica POO", "puntaje": resultado["respondidos"],
+                        "puntaje_maximo": resultado["total"], "tiempo_segundos": 0,
+                        "conceptos_con_error": [], "aprobado": False,
                         "detalle": resultado.get("detalle", []),
                     }
                 else:
                     persistible = normalizar_resultado_calificador(resultado)
                 guardado = simulacion.persistir_intento(persistible)
             except (ErrorProgreso, ValueError, TypeError, OverflowError) as exc:
-                md_ruta, figura, detalle, tema_update = _vista_ruta(
-                    motor, catalogo, estado_actual
-                )
+                vr = _vista_ruta(motor, catalogo, estado_actual)
                 return (
                     estado_actual, f"## No se guardó el resultado\n\n{exc}",
-                    md_ruta, figura, detalle, tema_update,
-                    gr.update(selected="resultados"), gr.update(), gr.update(), gr.update(),
+                    vr[0], vr[1], vr[2], vr[3], vr[4], vr[5],
+                    gr.update(selected="resultados"), gr.update(), gr.update(), gr.update(), gr.update(),
                 )
-
-            retroalimentacion = _retroalimentacion_local(
-                resultado, estado_actual["perfil"].get("formato")
-            )
+            retroalimentacion = _retroalimentacion_local(resultado, estado_actual["perfil"].get("formato"))
             nuevo = dict(estado_actual)
             nuevo["completados"] = temas_acreditados(guardado)
             nuevo["intentos"] = guardado["intentos"]
-            nuevo["variantes_usadas"] = [
-                item["variante"] for item in guardado["intentos"]
-                if item.get("variante")
-            ]
+            nuevo["variantes_usadas"] = [i["variante"] for i in guardado["intentos"] if i.get("variante")]
             nuevo["simulacion_activa"] = guardado["simulacion_activa"]
             nuevo["resultado"] = resultado
             _actualizar_recomendacion(motor, nuevo)
-            md_ruta, figura, detalle, tema_update = _vista_ruta(motor, catalogo, nuevo)
+            vr = _vista_ruta(motor, catalogo, nuevo)
+            principal, efecto, revision, retro, recurso = _resultado_markdown(resultado, retroalimentacion, motor, catalogo)
             return (
-                nuevo, _resultado_markdown(resultado, retroalimentacion), md_ruta, figura, detalle,
-                tema_update,
+                nuevo, principal, efecto, revision, retro, recurso,
+                vr[0], vr[1], vr[2], vr[3], vr[4], vr[5],
                 gr.update(selected="resultados"),
-                "",  # explicación anterior: se limpia porque es de otro intento
-                gr.update(**_boton_ia(resultado.get("tipo") != "poo")),
-                gr.update(visible=False),
+                "", gr.update(**_boton_ia(resultado.get("tipo") != "poo")), gr.update(visible=False),
             )
 
         def entregar_poo(*valores):
             estado_actual = valores[-1]
-            respuestas = [str(respuesta or "").strip() for respuesta in valores[:-1]]
+            respuestas = [str(r or "").strip() for r in valores[:-1]]
             resultado = {
-                "tipo": "poo",
-                "respondidos": sum(bool(respuesta) for respuesta in respuestas),
-                "total": len(respuestas),
+                "tipo": "poo", "tema": "Programación Orientada a Objetos",
+                "respondidos": sum(bool(r) for r in respuestas), "total": len(respuestas),
                 "acreditado": False,
-                "detalle": [
-                    {"id": f"POO-{indice + 1:02d}", "respuesta": respuesta}
-                    for indice, respuesta in enumerate(respuestas)
-                ],
+                "detalle": [{"id": f"POO-{i + 1:02d}", "respuesta": r} for i, r in enumerate(respuestas)],
             }
             return registrar_resultado(resultado, estado_actual)
 
         def calificar_lab(*valores):
             estado_actual = valores[-1]
-            respuestas = {
-                ejercicio["id"]: respuesta or ""
-                for ejercicio, respuesta in zip(ejercicios_lab, valores[:-1])
-            }
+            respuestas = {e["id"]: r or "" for e, r in zip(ejercicios_lab, valores[:-1])}
             inicio = estado_actual.get("inicio_actividad") or time.monotonic()
-            resultado = calificar_laboratorio(
-                respuestas, tiempo=max(0.0, time.monotonic() - inicio),
-            )
-            resultado["respuestas"] = respuestas  # contexto para la explicación con IA
+            resultado = calificar_laboratorio(respuestas, tiempo=max(0.0, time.monotonic() - inicio))
+            resultado["respuestas"] = respuestas
             return registrar_resultado(resultado, estado_actual)
 
         def calificar_lab_mvc(*valores):
             estado_actual = valores[-1]
-            respuestas = {
-                criterio_id: respuesta or ""
-                for criterio_id, respuesta in zip(criterios_mvc, valores[:-1])
-            }
+            respuestas = {c: r or "" for c, r in zip(criterios_mvc, valores[:-1])}
             inicio = estado_actual.get("inicio_actividad") or time.monotonic()
-            resultado = calificar_laboratorio_mvc(
-                respuestas, tiempo=max(0.0, time.monotonic() - inicio),
-            )
+            resultado = calificar_laboratorio_mvc(respuestas, tiempo=max(0.0, time.monotonic() - inicio))
             resultado["respuestas"] = respuestas
             return registrar_resultado(resultado, estado_actual)
 
@@ -850,23 +927,11 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             if not variante or seleccion not in SEGUIMIENTOS:
                 raise ValueError("Selecciona una variante de seguimiento antes de calificar.")
             obtener_variante, calificar = SEGUIMIENTOS[seleccion]
-            variante_actual, preguntas = obtener_variante(
-                estado_actual["variantes_usadas"]
-            )
+            variante_actual, preguntas = obtener_variante(estado_actual["variantes_usadas"])
             if variante_actual != variante:
-                raise ValueError("La variante activa no coincide con la siguiente variante disponible.")
-            respuestas = {
-                pregunta["id"]: respuesta or ""
-                for pregunta, respuesta in zip(preguntas, valores[:-1])
-            }
-            resultado = calificar(
-                respuestas,
-                tiempo=max(
-                    0.0,
-                    time.monotonic() - (estado_actual.get("inicio_actividad") or time.monotonic()),
-                ),
-                variante_usada=variante,
-            )
+                raise ValueError("La variante activa no coincide.")
+            respuestas = {p["id"]: r or "" for p, r in zip(preguntas, valores[:-1])}
+            resultado = calificar(respuestas, tiempo=max(0.0, time.monotonic() - (estado_actual.get("inicio_actividad") or time.monotonic())), variante_usada=variante)
             resultado["respuestas"] = respuestas
             nuevo = dict(estado_actual)
             nuevo["variantes_usadas"] = list(nuevo["variantes_usadas"]) + [variante]
@@ -874,136 +939,72 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
 
         def calificar_lab_node(*valores):
             estado_actual = valores[-1]
-            respuestas = {
-                ejercicio["id"]: respuesta or ""
-                for ejercicio, respuesta in zip(ejercicios_lab_node, valores[:-1])
-            }
+            respuestas = {e["id"]: r or "" for e, r in zip(ejercicios_lab_node, valores[:-1])}
             inicio = estado_actual.get("inicio_actividad") or time.monotonic()
-            resultado = calificar_laboratorio_node(
-                respuestas, tiempo_segundos=max(0.0, time.monotonic() - inicio),
-            )
+            resultado = calificar_laboratorio_node(respuestas, tiempo_segundos=max(0.0, time.monotonic() - inicio))
             return registrar_resultado(resultado, estado_actual)
 
         def calificar_seg_node(*valores):
             estado_actual = valores[-1]
             variante = estado_actual.get("variante_activa")
             if not variante:
-                raise ValueError("Selecciona una variante de seguimiento Node.js antes de calificar.")
-            variante_actual, preguntas = obtener_variante_seguimiento_node(
-                estado_actual["variantes_usadas"]
-            )
+                raise ValueError("Selecciona una variante de seguimiento Node.js.")
+            variante_actual, preguntas = obtener_variante_seguimiento_node(estado_actual["variantes_usadas"])
             if variante_actual != variante:
-                raise ValueError("La variante activa Node.js no coincide con la siguiente disponible.")
-            faltantes = [
-                NODO_A_TEMA[requisito]
-                for requisito in motor.grafo[TEMA_A_NODO["Backend con Node.js"]]["prerrequisitos"]
-                if NODO_A_TEMA[requisito] not in estado_actual["completados"]
-            ]
+                raise ValueError("La variante activa Node.js no coincide.")
+            faltantes = [NODO_A_TEMA[r] for r in motor.grafo[TEMA_A_NODO["Backend con Node.js"]]["prerrequisitos"]
+                         if NODO_A_TEMA[r] not in estado_actual["completados"]]
             if faltantes:
-                raise ValueError(
-                    "Backend con Node.js sigue bloqueado; falta acreditar: "
-                    + ", ".join(faltantes)
-                )
-            respuestas = {
-                pregunta["id"]: respuesta or ""
-                for pregunta, respuesta in zip(preguntas, valores[:-1])
-            }
-            resultado = calificar_seguimiento_node(
-                respuestas,
-                tiempo_segundos=max(
-                    0.0,
-                    time.monotonic() - (estado_actual.get("inicio_actividad") or time.monotonic()),
-                ),
-                variante=variante,
-            )
+                raise ValueError("Backend con Node.js sigue bloqueado.")
+            respuestas = {p["id"]: r or "" for p, r in zip(preguntas, valores[:-1])}
+            resultado = calificar_seguimiento_node(respuestas, tiempo_segundos=max(0.0, time.monotonic() - (estado_actual.get("inicio_actividad") or time.monotonic())), variante=variante)
             return registrar_resultado(resultado, estado_actual)
 
         resultado_outputs = [
-            estado, resultados, resumen_ruta, grafo, detalle_grafo, tema_grafo, navegacion,
-            explicacion_ia, pedir_ia, cargando_ia,
+            estado, resultado_principal, resultado_efecto, resultado_revision,
+            resultado_retro, resultado_recurso,
+            ruta_cabecera, siguiente_paso, lista_pasos, grafo, tema_detalle, tema_grafo,
+            navegacion, explicacion_ia, pedir_ia, cargando_ia,
         ]
-        enviar_mvc.click(
-            fn=calificar_lab_mvc,
-            inputs=[*respuestas_mvc, estado],
-            outputs=resultado_outputs,
-        )
+        enviar_mvc.click(calificar_lab_mvc, [*respuestas_mvc, estado], resultado_outputs)
+        enviar_poo.click(entregar_poo, [*respuestas_poo, estado], resultado_outputs)
+        enviar_lab.click(calificar_lab, [*respuestas_lab, estado], resultado_outputs)
+        enviar_seg.click(calificar_seg, [*respuestas_seg, estado], resultado_outputs)
+        enviar_lab_node.click(calificar_lab_node, [*respuestas_lab_node, estado], resultado_outputs)
+        enviar_seg_node.click(calificar_seg_node, [*respuestas_seg_node, estado], resultado_outputs)
 
         def mostrar_cargando_ia():
-            """Paso 1 (inmediato): bloquea el botón y muestra el círculo de carga."""
-            return (
-                gr.update(**_boton_ia(False, "Generando explicación…")),
-                gr.update(visible=True),
-                "",
-            )
+            return (gr.update(**_boton_ia(False, "Generando explicación…")), gr.update(visible=True), "")
 
         def pedir_explicacion(estado_actual):
-            """Paso 2: llama a Gemini (o al respaldo) y deja el botón en el estado lógico."""
             resultado = estado_actual.get("resultado")
             if not resultado:
-                return ("Primero completa una actividad calificada.",
-                        gr.update(**_boton_ia(False)), gr.update(visible=False))
+                return ("Primero completa una actividad calificada.", gr.update(**_boton_ia(False)), gr.update(visible=False))
             if resultado.get("tipo") == "poo":
-                return ("La práctica de POO no tiene calificación automática; la explicación con IA "
-                        "está disponible para los laboratorios y seguimientos calificados.",
-                        gr.update(**_boton_ia(False)), gr.update(visible=False))
+                return ("La práctica de POO no tiene calificación automática.", gr.update(**_boton_ia(False)), gr.update(visible=False))
             try:
-                explicacion = solicitar_explicacion(
-                    resultado, estado_actual["perfil"].get("formato")
-                )
-            except Exception as exc:  # nunca dejar el botón bloqueado
-                return (f"No se pudo generar la explicación: {exc}",
-                        gr.update(**_boton_ia(True, "Reintentar explicación con IA (Gemini)")),
-                        gr.update(visible=False))
+                explicacion = solicitar_explicacion(resultado, estado_actual["perfil"].get("formato"))
+            except Exception as exc:
+                return (f"No se pudo generar la explicación: {exc}", gr.update(**_boton_ia(True, "Reintentar explicación con IA (Gemini)")), gr.update(visible=False))
             if explicacion.get("origen") == "gemini":
                 boton = _boton_ia(False, "Explicación con IA generada")
-            else:  # Gemini falló: se mostró el respaldo local y se puede reintentar
+            else:
                 boton = _boton_ia(True, "Reintentar explicación con IA (Gemini)")
-            return (renderizar_retroalimentacion(explicacion), gr.update(**boton),
-                    gr.update(visible=False))
+            return (renderizar_retroalimentacion(explicacion), gr.update(**boton), gr.update(visible=False))
 
-        pedir_ia.click(
-            fn=mostrar_cargando_ia,
-            outputs=[pedir_ia, cargando_ia, explicacion_ia],
-            queue=False, show_progress="hidden", trigger_mode="once",
-        ).then(
-            fn=pedir_explicacion,
-            inputs=estado,
-            outputs=[explicacion_ia, pedir_ia, cargando_ia],
-            show_progress="hidden", concurrency_limit=1,
-        )
-        enviar_poo.click(
-            fn=entregar_poo,
-            inputs=[*respuestas_poo, estado],
-            outputs=resultado_outputs,
-        )
-        enviar_lab.click(
-            fn=calificar_lab,
-            inputs=[*respuestas_lab, estado],
-            outputs=resultado_outputs,
-        )
-        enviar_seg.click(
-            fn=calificar_seg,
-            inputs=[*respuestas_seg, estado],
-            outputs=resultado_outputs,
-        )
-        enviar_lab_node.click(
-            fn=calificar_lab_node,
-            inputs=[*respuestas_lab_node, estado],
-            outputs=resultado_outputs,
-        )
-        enviar_seg_node.click(
-            fn=calificar_seg_node,
-            inputs=[*respuestas_seg_node, estado],
-            outputs=resultado_outputs,
+        pedir_ia.click(mostrar_cargando_ia, outputs=[pedir_ia, cargando_ia, explicacion_ia], queue=False, show_progress="hidden", trigger_mode="once").then(
+            pedir_explicacion, inputs=estado, outputs=[explicacion_ia, pedir_ia, cargando_ia], show_progress="hidden", concurrency_limit=1,
         )
 
-        volver_ruta.click(
-            fn=lambda: gr.update(selected="ruta"),
-            outputs=navegacion,
-        )
-        reintentar.click(
-            fn=lambda: (gr.update(selected="actividad"), gr.update(value=None)),
-            outputs=[navegacion, tipo_actividad],
+        volver_ruta.click(lambda: gr.update(selected="ruta"), outputs=navegacion)
+        otra_actividad.click(lambda: (gr.update(selected="actividad"), gr.update(value=None)), outputs=[navegacion, tipo_actividad])
+        continuar_siguiente.click(
+            lambda actual: (
+                siguiente := actual["recomendacion"].get("siguiente_tema"),
+                gr.update(selected="actividad") if siguiente else gr.update(selected="ruta"),
+                gr.update(value=None),
+            )[1:],
+            estado, [navegacion, tipo_actividad],
         )
 
     return demo

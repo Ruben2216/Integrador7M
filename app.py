@@ -9,12 +9,15 @@ import os
 import sys
 from pathlib import Path
 
+import gradio as gr
+
 _DIR = os.path.dirname(os.path.abspath(__file__))
 if _DIR not in sys.path:
     sys.path.insert(0, _DIR)
 
 from motor import Motor
 from interfaz import construir_interfaz
+from ui.estilos import CSS
 import simulacion
 from simulacion import configurar_motor
 
@@ -45,6 +48,8 @@ def main():
         server_port=args.port,
         inbrowser=not args.no_browser,
         share=args.share,
+        theme=gr.themes.Base(),
+        css=CSS,
     )
 
 

@@ -7,3 +7,4 @@ progreso.json
 
 # Claves privadas (Gemini). Nunca subir a GitHub.
 .env
+/artifacts
