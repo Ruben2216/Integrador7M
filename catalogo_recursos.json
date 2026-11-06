@@ -118,6 +118,20 @@
         "concepto": "Backend con Node.js",
         "enlace": "https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick"
     },
+    "Recurso_Lectura_Node_Express": {
+        "titulo": "Express routing",
+        "fuente": "Express.js",
+        "formato": "Lectura",
+        "concepto": "Rutas y parámetros",
+        "enlace": "https://expressjs.com/en/guide/routing/"
+    },
+    "Recurso_Referencia_Node_Errors": {
+        "titulo": "Errors",
+        "fuente": "Node.js API",
+        "formato": "Referencia",
+        "concepto": "Errores y validación",
+        "enlace": "https://nodejs.org/api/errors.html"
+    },
     "Recurso_Video_PHP": {
         "titulo": "Classes and Objects",
         "fuente": "PHP Documentation",

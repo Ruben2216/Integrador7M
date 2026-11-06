@@ -33,7 +33,9 @@
         ],
         "recursos": [
             "Recurso_Video_Node",
-            "Recurso_Practica_Node"
+            "Recurso_Practica_Node",
+            "Recurso_Lectura_Node_Express",
+            "Recurso_Referencia_Node_Errors"
         ]
     },
     "Patron_MVC_en_PHP": {
