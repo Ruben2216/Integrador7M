@@ -4,3 +4,6 @@ venv/
 .pytest_cache/
 .coverage
 progreso.json
+
+# Claves privadas (Gemini). Nunca subir a GitHub.
+.env

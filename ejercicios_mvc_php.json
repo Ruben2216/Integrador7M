@@ -1,0 +1,442 @@
+{
+    "tema": "Patron_MVC_en_PHP",
+    "conceptos": {
+        "RESPONSABILIDADES_CAPA": "Responsabilidades por capa",
+        "FLUJO_PETICION": "Flujo de una petición",
+        "CORRECCION_CAPA": "Corrección de una responsabilidad mal asignada",
+        "INTEGRADORA_MVC": "Operación completa modelo-vista-controlador"
+    },
+    "laboratorio": [
+        {
+            "id": "MVC-LAB01",
+            "tema": "Patron_MVC_en_PHP",
+            "tipo": "laboratorio",
+            "concepto": "RESPONSABILIDADES_CAPA",
+            "dificultad": "Principiante",
+            "enunciado": "Una tienda en línea está hecha con el patrón MVC en PHP. Clasifica cada fragmento de código en la capa que le corresponde: Modelo, Vista o Controlador.",
+            "codigo": "// Fragmento A\n$stmt = $this->pdo->prepare('SELECT * FROM productos WHERE id = ?');\n$stmt->execute([$id]);\nreturn $stmt->fetch();\n\n// Fragmento B\n<h1><?= htmlspecialchars($producto['nombre']) ?></h1>\n<p>Precio: $<?= number_format($producto['precio'], 2) ?></p>\n\n// Fragmento C\n$id = (int) ($_GET['id'] ?? 0);\n$producto = $this->modelo->buscar($id);\nrequire 'vistas/producto.php';",
+            "criterio_evaluacion": "Acredita el ejercicio si clasifica correctamente los tres fragmentos.",
+            "criterios": [
+                {
+                    "id": "M01-MODELO",
+                    "descripcion": "Reconoce el acceso a datos como responsabilidad del Modelo",
+                    "pregunta": "Fragmento A (consulta con PDO):",
+                    "opciones": ["Modelo", "Vista", "Controlador"],
+                    "respuesta_correcta": "Modelo"
+                },
+                {
+                    "id": "M01-VISTA",
+                    "descripcion": "Reconoce la presentación del HTML como responsabilidad de la Vista",
+                    "pregunta": "Fragmento B (HTML con datos del producto):",
+                    "opciones": ["Modelo", "Vista", "Controlador"],
+                    "respuesta_correcta": "Vista"
+                },
+                {
+                    "id": "M01-CONTROLADOR",
+                    "descripcion": "Reconoce la coordinación de la petición como responsabilidad del Controlador",
+                    "pregunta": "Fragmento C (lee el id, consulta al modelo y elige la vista):",
+                    "opciones": ["Modelo", "Vista", "Controlador"],
+                    "respuesta_correcta": "Controlador"
+                }
+            ]
+        },
+        {
+            "id": "MVC-LAB02",
+            "tema": "Patron_MVC_en_PHP",
+            "tipo": "laboratorio",
+            "concepto": "FLUJO_PETICION",
+            "dificultad": "Intermedio",
+            "enunciado": "El navegador solicita GET /productos/5. Ordena el recorrido de la petición dentro de la aplicación MVC eligiendo qué ocurre en cada paso.",
+            "codigo": "",
+            "criterio_evaluacion": "Acredita el ejercicio si los cuatro pasos están en el orden correcto.",
+            "criterios": [
+                {
+                    "id": "M02-PASO1",
+                    "descripcion": "Identifica que el enrutador recibe la petición y elige el controlador",
+                    "pregunta": "Paso 1:",
+                    "opciones": [
+                        "El modelo consulta la base de datos y devuelve los datos del producto 5",
+                        "El enrutador (index.php) recibe la URL y elige ProductoController::mostrar()",
+                        "La vista recibe los datos y genera el HTML que se envía al navegador",
+                        "El controlador lee el id 5 y le pide el producto al modelo"
+                    ],
+                    "respuesta_correcta": "El enrutador (index.php) recibe la URL y elige ProductoController::mostrar()"
+                },
+                {
+                    "id": "M02-PASO2",
+                    "descripcion": "Identifica que el controlador procesa la entrada y llama al modelo",
+                    "pregunta": "Paso 2:",
+                    "opciones": [
+                        "El modelo consulta la base de datos y devuelve los datos del producto 5",
+                        "El enrutador (index.php) recibe la URL y elige ProductoController::mostrar()",
+                        "La vista recibe los datos y genera el HTML que se envía al navegador",
+                        "El controlador lee el id 5 y le pide el producto al modelo"
+                    ],
+                    "respuesta_correcta": "El controlador lee el id 5 y le pide el producto al modelo"
+                },
+                {
+                    "id": "M02-PASO3",
+                    "descripcion": "Identifica que el modelo obtiene los datos",
+                    "pregunta": "Paso 3:",
+                    "opciones": [
+                        "El modelo consulta la base de datos y devuelve los datos del producto 5",
+                        "El enrutador (index.php) recibe la URL y elige ProductoController::mostrar()",
+                        "La vista recibe los datos y genera el HTML que se envía al navegador",
+                        "El controlador lee el id 5 y le pide el producto al modelo"
+                    ],
+                    "respuesta_correcta": "El modelo consulta la base de datos y devuelve los datos del producto 5"
+                },
+                {
+                    "id": "M02-PASO4",
+                    "descripcion": "Identifica que la vista genera la respuesta final",
+                    "pregunta": "Paso 4:",
+                    "opciones": [
+                        "El modelo consulta la base de datos y devuelve los datos del producto 5",
+                        "El enrutador (index.php) recibe la URL y elige ProductoController::mostrar()",
+                        "La vista recibe los datos y genera el HTML que se envía al navegador",
+                        "El controlador lee el id 5 y le pide el producto al modelo"
+                    ],
+                    "respuesta_correcta": "La vista recibe los datos y genera el HTML que se envía al navegador"
+                }
+            ]
+        },
+        {
+            "id": "MVC-LAB03",
+            "tema": "Patron_MVC_en_PHP",
+            "tipo": "laboratorio",
+            "concepto": "CORRECCION_CAPA",
+            "dificultad": "Avanzado",
+            "enunciado": "Este controlador funciona, pero mezcla responsabilidades. Identifica el problema e indica cómo repartir el código entre las capas.",
+            "codigo": "class ProductoController {\n    public function listar() {\n        $pdo = new PDO('pgsql:host=localhost;dbname=tienda', 'app', 'secreto');\n        $filas = $pdo->query('SELECT nombre, precio FROM productos')->fetchAll();\n        echo '<ul>';\n        foreach ($filas as $f) {\n            echo '<li>' . $f['nombre'] . ' - $' . $f['precio'] . '</li>';\n        }\n        echo '</ul>';\n    }\n}",
+            "criterio_evaluacion": "Acredita el ejercicio si detecta la mezcla de responsabilidades y reubica correctamente la consulta, el HTML y la tarea que conserva el controlador.",
+            "criterios": [
+                {
+                    "id": "M03-DETECTA",
+                    "descripcion": "Detecta que el controlador hace el trabajo del modelo y de la vista",
+                    "pregunta": "¿Cuál es el problema principal de este controlador?",
+                    "opciones": [
+                        "Le falta un constructor",
+                        "Hace el trabajo del modelo (SQL) y de la vista (HTML) además del suyo",
+                        "Debería ser una función suelta y no una clase",
+                        "Usa GET en lugar de POST"
+                    ],
+                    "respuesta_correcta": "Hace el trabajo del modelo (SQL) y de la vista (HTML) además del suyo"
+                },
+                {
+                    "id": "M03-SQL",
+                    "descripcion": "Reubica la consulta SQL en el Modelo",
+                    "pregunta": "¿A dónde debe moverse la conexión y la consulta SQL?",
+                    "opciones": [
+                        "Se queda en el controlador",
+                        "A la vista, junto al <ul>",
+                        "Al modelo, por ejemplo ProductoModel::todos()",
+                        "Al archivo index.php"
+                    ],
+                    "respuesta_correcta": "Al modelo, por ejemplo ProductoModel::todos()"
+                },
+                {
+                    "id": "M03-HTML",
+                    "descripcion": "Reubica la generación del HTML en la Vista",
+                    "pregunta": "¿A dónde debe moverse la generación del HTML?",
+                    "opciones": [
+                        "A la vista, por ejemplo vistas/productos/lista.php, escapando con htmlspecialchars",
+                        "Al modelo, para que devuelva el HTML listo",
+                        "Se queda en el controlador con echo",
+                        "A la base de datos, como una columna con HTML"
+                    ],
+                    "respuesta_correcta": "A la vista, por ejemplo vistas/productos/lista.php, escapando con htmlspecialchars"
+                },
+                {
+                    "id": "M03-CONTROLADOR",
+                    "descripcion": "Indica la responsabilidad que conserva el Controlador",
+                    "pregunta": "Después de corregirlo, ¿qué debe quedar en ProductoController::listar()?",
+                    "opciones": [
+                        "Nada; el método se elimina",
+                        "Solo la conexión PDO",
+                        "Pedir los productos al modelo y pasarlos a la vista",
+                        "Solo los echo del HTML"
+                    ],
+                    "respuesta_correcta": "Pedir los productos al modelo y pasarlos a la vista"
+                }
+            ]
+        },
+        {
+            "id": "MVC-LAB04",
+            "tema": "Patron_MVC_en_PHP",
+            "tipo": "laboratorio",
+            "concepto": "INTEGRADORA_MVC",
+            "dificultad": "Integrador",
+            "enunciado": "Implementa mentalmente la operación «Registrar producto» (POST /productos con nombre y precio). Si el precio no es válido, se vuelve a mostrar el formulario con el error; si es válido, se guarda y se muestra el listado. Elige qué hace cada capa.",
+            "codigo": "// index.php enruta POST /productos a:\n$controlador = new ProductoController(new ProductoModel($pdo));\n$controlador->guardar();",
+            "criterio_evaluacion": "Acredita el ejercicio si la operación pasa correctamente por controlador, modelo y vista en el caso válido y en el caso con error.",
+            "criterios": [
+                {
+                    "id": "M04-CONTROLADOR",
+                    "descripcion": "El controlador lee la petición, delega en el modelo y decide la respuesta",
+                    "pregunta": "¿Qué hace ProductoController::guardar()?",
+                    "opciones": [
+                        "Escribe el INSERT y el HTML del listado",
+                        "Lee $_POST, pide al modelo validar y guardar, y decide qué vista mostrar o a dónde redirigir",
+                        "Solo imprime los datos recibidos",
+                        "Valida el precio con JavaScript en el navegador y no hace nada más"
+                    ],
+                    "respuesta_correcta": "Lee $_POST, pide al modelo validar y guardar, y decide qué vista mostrar o a dónde redirigir"
+                },
+                {
+                    "id": "M04-MODELO",
+                    "descripcion": "La regla de negocio y la persistencia viven en el modelo",
+                    "pregunta": "¿Dónde viven la regla «el precio debe ser mayor que 0» y el INSERT?",
+                    "opciones": [
+                        "En la vista del formulario",
+                        "En index.php",
+                        "En el modelo (por ejemplo ProductoModel::validar() y ProductoModel::guardar())",
+                        "En el controlador, mezcladas con la lectura de $_POST"
+                    ],
+                    "respuesta_correcta": "En el modelo (por ejemplo ProductoModel::validar() y ProductoModel::guardar())"
+                },
+                {
+                    "id": "M04-ERROR",
+                    "descripcion": "Con datos inválidos se vuelve a la vista del formulario sin guardar",
+                    "pregunta": "Si el precio enviado es -5, ¿qué responde la aplicación?",
+                    "opciones": [
+                        "Guarda el producto y luego muestra un aviso",
+                        "El modelo imprime el mensaje de error con echo",
+                        "El controlador vuelve a mostrar la vista del formulario con el mensaje de error y sin guardar",
+                        "Muestra una página en blanco"
+                    ],
+                    "respuesta_correcta": "El controlador vuelve a mostrar la vista del formulario con el mensaje de error y sin guardar"
+                },
+                {
+                    "id": "M04-EXITO",
+                    "descripcion": "Con datos válidos se guarda y se redirige al listado",
+                    "pregunta": "Si los datos son válidos, ¿cuál es la respuesta adecuada después de guardar?",
+                    "opciones": [
+                        "Redirigir a GET /productos para que la vista del listado muestre el nuevo producto",
+                        "Imprimir la consulta SQL ejecutada",
+                        "Volver a mostrar el formulario vacío sin ningún mensaje",
+                        "Devolver el objeto PDO al navegador"
+                    ],
+                    "respuesta_correcta": "Redirigir a GET /productos para que la vista del listado muestre el nuevo producto"
+                }
+            ]
+        }
+    ],
+    "seguimiento": {
+        "mvc_variante_1": [
+            {
+                "id": "MVC-SEG-V1-01",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "RESPONSABILIDADES_CAPA",
+                "dificultad": "Principiante",
+                "enunciado": "¿Qué capa se encarga de acceder a la base de datos y aplicar las reglas del negocio?",
+                "opciones": ["Modelo", "Vista", "Controlador", "El enrutador"],
+                "respuesta_correcta": "Modelo"
+            },
+            {
+                "id": "MVC-SEG-V1-02",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "RESPONSABILIDADES_CAPA",
+                "dificultad": "Principiante",
+                "enunciado": "¿Qué debe contener una vista en PHP?",
+                "opciones": [
+                    "Consultas SQL para obtener los datos",
+                    "Una plantilla HTML que muestra los datos recibidos, escapados con htmlspecialchars",
+                    "La lectura de $_POST y la validación",
+                    "La conexión PDO a la base de datos"
+                ],
+                "respuesta_correcta": "Una plantilla HTML que muestra los datos recibidos, escapados con htmlspecialchars"
+            },
+            {
+                "id": "MVC-SEG-V1-03",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "FLUJO_PETICION",
+                "dificultad": "Intermedio",
+                "enunciado": "En una petición MVC, ¿quién recibe primero la petición del usuario y decide qué hacer con ella?",
+                "opciones": [
+                    "El modelo",
+                    "La vista",
+                    "El controlador, a través del enrutador",
+                    "La base de datos"
+                ],
+                "respuesta_correcta": "El controlador, a través del enrutador"
+            },
+            {
+                "id": "MVC-SEG-V1-04",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "CORRECCION_CAPA",
+                "dificultad": "Avanzado",
+                "enunciado": "Una vista ejecuta $pdo->query('SELECT * FROM usuarios'). ¿Cómo se corrige?",
+                "opciones": [
+                    "Se deja así, porque la vista necesita los datos",
+                    "Se mueve la consulta al modelo y el controlador pasa los resultados a la vista",
+                    "Se copia la consulta también en el controlador",
+                    "Se mueve la consulta a un archivo CSS"
+                ],
+                "respuesta_correcta": "Se mueve la consulta al modelo y el controlador pasa los resultados a la vista"
+            },
+            {
+                "id": "MVC-SEG-V1-05",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "INTEGRADORA_MVC",
+                "dificultad": "Integrador",
+                "enunciado": "Al enviar un formulario de registro con datos inválidos, ¿qué secuencia es correcta?",
+                "opciones": [
+                    "La vista valida y guarda directamente en la base de datos",
+                    "El controlador recibe los datos, el modelo los valida y los rechaza, y el controlador vuelve a mostrar la vista con los errores",
+                    "El modelo genera el HTML del mensaje de error",
+                    "Primero se guardan los datos y después se validan"
+                ],
+                "respuesta_correcta": "El controlador recibe los datos, el modelo los valida y los rechaza, y el controlador vuelve a mostrar la vista con los errores"
+            }
+        ],
+        "mvc_variante_2": [
+            {
+                "id": "MVC-SEG-V2-01",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "RESPONSABILIDADES_CAPA",
+                "dificultad": "Principiante",
+                "enunciado": "¿Qué capa decide qué vista mostrar después de procesar una petición?",
+                "opciones": ["Modelo", "Vista", "Controlador", "La base de datos"],
+                "respuesta_correcta": "Controlador"
+            },
+            {
+                "id": "MVC-SEG-V2-02",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "RESPONSABILIDADES_CAPA",
+                "dificultad": "Principiante",
+                "enunciado": "¿Dónde debe estar la regla «un pedido no puede tener una cantidad negativa»?",
+                "opciones": ["En la vista", "En el modelo", "En el enrutador", "En la hoja de estilos"],
+                "respuesta_correcta": "En el modelo"
+            },
+            {
+                "id": "MVC-SEG-V2-03",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "FLUJO_PETICION",
+                "dificultad": "Intermedio",
+                "enunciado": "Después de que el modelo devuelve los datos al controlador, ¿qué sigue normalmente?",
+                "opciones": [
+                    "El modelo imprime el HTML",
+                    "La vista vuelve a consultar la base de datos",
+                    "El controlador entrega los datos a la vista para generar la respuesta",
+                    "El navegador consulta directamente al modelo"
+                ],
+                "respuesta_correcta": "El controlador entrega los datos a la vista para generar la respuesta"
+            },
+            {
+                "id": "MVC-SEG-V2-04",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "CORRECCION_CAPA",
+                "dificultad": "Avanzado",
+                "enunciado": "El método guardar() del modelo Usuario contiene echo '<p>Bienvenido</p>';. ¿Qué está mal?",
+                "opciones": [
+                    "Nada, es correcto",
+                    "Debería usar print en lugar de echo",
+                    "El modelo está generando salida HTML; eso le corresponde a la vista",
+                    "Los modelos no pueden tener métodos"
+                ],
+                "respuesta_correcta": "El modelo está generando salida HTML; eso le corresponde a la vista"
+            },
+            {
+                "id": "MVC-SEG-V2-05",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "INTEGRADORA_MVC",
+                "dificultad": "Integrador",
+                "enunciado": "Para atender GET /pedidos/7, ¿qué reparto de trabajo es correcto?",
+                "opciones": [
+                    "El controlador lee el id, el modelo busca el pedido 7 y la vista lo muestra",
+                    "La vista lee el id y consulta la base de datos",
+                    "El modelo lee $_GET y genera el HTML",
+                    "El controlador escribe el SQL y el HTML"
+                ],
+                "respuesta_correcta": "El controlador lee el id, el modelo busca el pedido 7 y la vista lo muestra"
+            }
+        ],
+        "mvc_variante_3": [
+            {
+                "id": "MVC-SEG-V3-01",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "RESPONSABILIDADES_CAPA",
+                "dificultad": "Principiante",
+                "enunciado": "¿Cuál es la responsabilidad principal de la vista?",
+                "opciones": [
+                    "Guardar en la base de datos",
+                    "Presentar los datos al usuario",
+                    "Decidir qué ruta atender",
+                    "Validar las reglas del negocio"
+                ],
+                "respuesta_correcta": "Presentar los datos al usuario"
+            },
+            {
+                "id": "MVC-SEG-V3-02",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "RESPONSABILIDADES_CAPA",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Qué fragmento corresponde a un controlador?",
+                "opciones": [
+                    "<li><?= htmlspecialchars($p['nombre']) ?></li>",
+                    "SELECT * FROM productos WHERE id = ?",
+                    "$producto = $this->modelo->buscar($id); $this->render('producto', ['producto' => $producto]);",
+                    "<form method=\"post\" action=\"/productos\">"
+                ],
+                "respuesta_correcta": "$producto = $this->modelo->buscar($id); $this->render('producto', ['producto' => $producto]);"
+            },
+            {
+                "id": "MVC-SEG-V3-03",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "FLUJO_PETICION",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Qué componente traduce la URL /productos/5 al método correcto del controlador?",
+                "opciones": [
+                    "La vista",
+                    "El modelo",
+                    "El enrutador (front controller, por ejemplo index.php)",
+                    "La base de datos"
+                ],
+                "respuesta_correcta": "El enrutador (front controller, por ejemplo index.php)"
+            },
+            {
+                "id": "MVC-SEG-V3-04",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "CORRECCION_CAPA",
+                "dificultad": "Avanzado",
+                "enunciado": "Un controlador tiene 80 líneas con las reglas de descuentos y el cálculo de impuestos. ¿Qué conviene hacer?",
+                "opciones": [
+                    "Mover esas reglas al modelo y que el controlador solo las invoque",
+                    "Moverlas a la vista",
+                    "Dejarlas, porque el controlador debe hacer todos los cálculos",
+                    "Copiarlas en cada vista que las necesite"
+                ],
+                "respuesta_correcta": "Mover esas reglas al modelo y que el controlador solo las invoque"
+            },
+            {
+                "id": "MVC-SEG-V3-05",
+                "tema": "Patron_MVC_en_PHP",
+                "tipo": "seguimiento",
+                "concepto": "INTEGRADORA_MVC",
+                "dificultad": "Integrador",
+                "enunciado": "Después de guardar correctamente un producto enviado por POST, ¿qué respuesta se recomienda?",
+                "opciones": [
+                    "Imprimir la consulta SQL ejecutada",
+                    "Volver a mostrar el formulario con los mismos datos",
+                    "Redirigir a GET /productos para mostrar el listado actualizado",
+                    "No responder nada"
+                ],
+                "respuesta_correcta": "Redirigir a GET /productos para mostrar el listado actualizado"
+            }
+        ]
+    }
+}

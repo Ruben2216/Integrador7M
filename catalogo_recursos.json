@@ -145,5 +145,68 @@
         "formato": "Lectura",
         "concepto": "Patrón MVC en PHP",
         "enlace": "https://developer.mozilla.org/en-US/docs/Glossary/MVC"
+    },
+    "Recurso_Practica_PHP": {
+        "titulo": "Symfony versus Flat PHP — refactorizar PHP plano hacia controlador, modelo y plantilla",
+        "fuente": "Symfony Documentation",
+        "formato": "Práctica",
+        "concepto": "CORRECCION_CAPA",
+        "enlace": "https://symfony.com/doc/current/introduction/from_flat_php_to_symfony.html"
+    },
+    "Recurso_Lectura_MVC_Capas": {
+        "titulo": "Models, Views, and Controllers — qué hace cada capa",
+        "fuente": "CodeIgniter 4 User Guide",
+        "formato": "Lectura",
+        "concepto": "RESPONSABILIDADES_CAPA",
+        "enlace": "https://codeigniter.com/user_guide/concepts/mvc.html"
+    },
+    "Recurso_Referencia_MVC_Wikipedia": {
+        "titulo": "Modelo–vista–controlador",
+        "fuente": "Wikipedia en español",
+        "formato": "Referencia",
+        "concepto": "RESPONSABILIDADES_CAPA",
+        "enlace": "https://es.wikipedia.org/wiki/Modelo%E2%80%93vista%E2%80%93controlador"
+    },
+    "Recurso_Referencia_htmlspecialchars": {
+        "titulo": "htmlspecialchars — escapar datos al mostrarlos en la vista",
+        "fuente": "PHP Documentation",
+        "formato": "Referencia",
+        "concepto": "RESPONSABILIDADES_CAPA",
+        "enlace": "https://www.php.net/manual/en/function.htmlspecialchars.php"
+    },
+    "Recurso_Lectura_MVC_Ciclo": {
+        "titulo": "Request Lifecycle — recorrido de una petición",
+        "fuente": "Laravel Documentation",
+        "formato": "Lectura",
+        "concepto": "FLUJO_PETICION",
+        "enlace": "https://laravel.com/docs/lifecycle"
+    },
+    "Recurso_Lectura_MVC_Controladores": {
+        "titulo": "Controllers — rutas que llegan a un controlador",
+        "fuente": "Laravel Documentation",
+        "formato": "Lectura",
+        "concepto": "FLUJO_PETICION",
+        "enlace": "https://laravel.com/docs/controllers"
+    },
+    "Recurso_Referencia_PDO": {
+        "titulo": "PDO: sentencias preparadas — acceso a datos desde el modelo",
+        "fuente": "PHP Documentation",
+        "formato": "Referencia",
+        "concepto": "CORRECCION_CAPA",
+        "enlace": "https://www.php.net/manual/en/pdo.prepared-statements.php"
+    },
+    "Recurso_Lectura_MVC_Validacion": {
+        "titulo": "Validation — validar, mostrar errores y redirigir",
+        "fuente": "Laravel Documentation",
+        "formato": "Lectura",
+        "concepto": "INTEGRADORA_MVC",
+        "enlace": "https://laravel.com/docs/validation"
+    },
+    "Recurso_Lectura_MVC_Plantillas": {
+        "titulo": "PHP: The Right Way — Templating",
+        "fuente": "PHP: The Right Way",
+        "formato": "Lectura",
+        "concepto": "INTEGRADORA_MVC",
+        "enlace": "https://phptherightway.com/#templating"
     }
 }

@@ -114,7 +114,12 @@ def calificar_y_registrar(tipo, variante, lab01, lab02, lab03, lab04,
             resultado = calificar_seguimiento_real(respuestas, segundos, variante)
         else:
             raise ValueError("Selecciona una actividad reconocida")
-        return registrar_resultado_calificado(resultado)
+        try:
+            from retroalimentacion import generar_retroalimentacion
+            retroalimentacion = generar_retroalimentacion(resultado)
+        except Exception:  # la retroalimentación no debe impedir el guardado
+            retroalimentacion = None
+        return registrar_resultado_calificado(resultado, retroalimentacion)
     except (ValueError, TypeError, OverflowError, KeyError) as exc:
         return f"El calificador no pudo procesar las respuestas: {exc}", "", "Error de calificación"
 

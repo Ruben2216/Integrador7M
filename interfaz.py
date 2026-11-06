@@ -16,6 +16,13 @@ from calificador import (
     obtener_ejercicios_laboratorio,
     obtener_variante_seguimiento,
 )
+from calificador_mvc import (
+    calificar_laboratorio_mvc,
+    calificar_seguimiento_mvc,
+    obtener_conceptos_mvc,
+    obtener_ejercicios_laboratorio_mvc,
+    obtener_variante_seguimiento_mvc,
+)
 from recomendador import NIVELES, FORMATOS, NODO_A_TEMA, TEMA_A_NODO
 import simulacion
 from integracion_calificador import normalizar_resultado_calificador
@@ -26,7 +33,52 @@ from calificador_node import (
     obtener_variante_seguimiento_node,
 )
 from progreso import ErrorProgreso, temas_acreditados
+from retroalimentacion import (cargar_config, estado_gemini, generar_retroalimentacion,
+                               solicitar_explicacion)
 from ui.resultados import renderizar_retroalimentacion
+
+# Actividades de seguimiento: (obtener siguiente variante, calificar).
+SEGUIMIENTOS = {
+    "PostgreSQL · seguimiento": (obtener_variante_seguimiento, calificar_seguimiento),
+    "PHP MVC · seguimiento": (obtener_variante_seguimiento_mvc, calificar_seguimiento_mvc),
+}
+
+
+GEMINI_ACTIVO = cargar_config().disponible
+TEXTO_BOTON_IA = "Pedir explicación con IA (Gemini)"
+CARGANDO_IA_HTML = (
+    '<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;">'
+    '<svg width="26" height="26" viewBox="0 0 50 50" aria-hidden="true">'
+    '<circle cx="25" cy="25" r="20" fill="none" stroke="#d0d7de" stroke-width="5"/>'
+    '<circle cx="25" cy="25" r="20" fill="none" stroke="#f97316" stroke-width="5" '
+    'stroke-linecap="round" stroke-dasharray="80 126">'
+    '<animateTransform attributeName="transform" type="rotate" from="0 25 25" '
+    'to="360 25 25" dur="0.9s" repeatCount="indefinite"/></circle></svg>'
+    '<span>Generando la explicación con Gemini… puede tardar unos segundos.</span></div>'
+)
+
+
+def _boton_ia(habilitado: bool, texto: str = TEXTO_BOTON_IA) -> dict[str, Any]:
+    """
+    Estado del botón de explicación con IA:
+      · sin Gemini configurado → siempre deshabilitado, con el motivo;
+      · sin intento calificado (o práctica POO) → deshabilitado;
+      · intento calificado → habilitado; mientras carga y después de recibir la
+        explicación de Gemini → deshabilitado (no se pide dos veces lo mismo);
+      · si Gemini falló y se mostró el respaldo local → habilitado para reintentar.
+    """
+    if not GEMINI_ACTIVO:
+        return {"value": "Explicación con IA no disponible (Gemini no configurado)",
+                "interactive": False}
+    return {"value": texto, "interactive": habilitado}
+
+
+def _retroalimentacion_local(resultado: dict[str, Any], formato: str | None):
+    """Plan B del integrante 5; si algo falla, la calificación se muestra igual."""
+    try:
+        return generar_retroalimentacion(resultado, formato)
+    except Exception:  # la retroalimentación nunca debe impedir guardar el intento
+        return None
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _RUTA_CATALOGO = os.path.join(_DIR, "catalogo_recursos.json")
@@ -297,6 +349,8 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
     banco_poo = _cargar_json(_RUTA_POO)
     ejercicios_lab = obtener_ejercicios_laboratorio()
     ejercicios_lab_node = obtener_ejercicios_laboratorio_node()
+    ejercicios_mvc = obtener_ejercicios_laboratorio_mvc()
+    conceptos_mvc = obtener_conceptos_mvc()
     estado_inicial = _estado_inicial(motor)
     progreso_activo = estado_inicial["simulacion_activa"]
 
@@ -359,8 +413,9 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             with gr.Tab("Actividad", id="actividad"):
                 gr.Markdown(
                     "## Actividades\n"
-                    "Selecciona una práctica. Los laboratorios y seguimientos de PostgreSQL y Node.js "
-                    "se califican automáticamente; la práctica abierta de POO se entrega para revisión."
+                    "Selecciona una práctica. Los laboratorios y seguimientos de PostgreSQL, "
+                    "Node.js y Patrón MVC en PHP se califican automáticamente; la práctica "
+                    "abierta de POO se entrega para revisión."
                 )
                 tipo_actividad = gr.Radio(
                     [
@@ -369,6 +424,8 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                         "PostgreSQL · seguimiento",
                         "Backend con Node.js · laboratorio diagnóstico",
                         "Backend con Node.js · seguimiento",
+                        "PHP MVC · laboratorio",
+                        "PHP MVC · seguimiento",
                     ],
                     label="Actividad",
                     value=None,
@@ -401,8 +458,27 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                         )
                     enviar_lab = gr.Button("Calificar laboratorio", variant="primary")
 
+                with gr.Group(visible=False) as grupo_mvc:
+                    gr.Markdown("### Laboratorio Patrón MVC en PHP · cuatro ejercicios")
+                    respuestas_mvc = []
+                    criterios_mvc = []
+                    for ejercicio in ejercicios_mvc:
+                        codigo = (f"\n\n```php\n{ejercicio['codigo']}\n```"
+                                  if ejercicio.get("codigo") else "")
+                        gr.Markdown(
+                            f"**{ejercicio['id']} · "
+                            f"{conceptos_mvc.get(ejercicio['concepto'], ejercicio['concepto'])} "
+                            f"({ejercicio['dificultad']})**\n\n{ejercicio['enunciado']}{codigo}"
+                        )
+                        for criterio in ejercicio["criterios"]:
+                            criterios_mvc.append(criterio["id"])
+                            respuestas_mvc.append(gr.Radio(
+                                criterio["opciones"], label=criterio["pregunta"], value=None,
+                            ))
+                    enviar_mvc = gr.Button("Calificar laboratorio MVC", variant="primary")
+
                 with gr.Group(visible=False) as grupo_seguimiento:
-                    gr.Markdown("### Seguimiento PostgreSQL · cinco preguntas")
+                    gr.Markdown("### Actividad de seguimiento · cinco preguntas")
                     preguntas_seg = []
                     respuestas_seg = []
                     for indice in range(5):
@@ -451,6 +527,16 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 resultados = gr.Markdown(
                     "Aún no hay resultados. Completa una actividad para ver aquí el resumen."
                 )
+                with gr.Group():
+                    gr.Markdown(
+                        "#### Explicación con IA\n"
+                        f"_{estado_gemini()}_  \n"
+                        "La calificación, el guardado y la ruta ya están listos; la explicación "
+                        "es un complemento. Si Gemini no responde, verás la retroalimentación local."
+                    )
+                    pedir_ia = gr.Button(**_boton_ia(False))
+                    cargando_ia = gr.HTML(CARGANDO_IA_HTML, visible=False, js_on_load=None)
+                    explicacion_ia = gr.Markdown()
                 with gr.Row():
                     volver_ruta = gr.Button("Volver a Mi ruta")
                     reintentar = gr.Button("Reintentar / elegir otra actividad")
@@ -478,13 +564,16 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 gr.update(value=motor.temas[0]), gr.update(value="Backend con Node.js"),
                 gr.update(value=120), gr.update(value=50), gr.update(value=0),
                 gr.update(value=False),
+                "Aún no hay resultados. Completa una actividad para ver aquí el resumen.",
+                "", gr.update(**_boton_ia(False)), gr.update(visible=False),
             )
 
         reiniciar_simulacion.click(
             fn=reiniciar_desde_interfaz,
             outputs=[estado, navegacion, resumen_inicio, resumen_ruta, grafo,
                      detalle_grafo, tema_grafo, iniciar, nivel,
-                     formato, tema, meta, tiempo, errores, fallos, abandono],
+                     formato, tema, meta, tiempo, errores, fallos, abandono,
+                     resultados, explicacion_ia, pedir_ia, cargando_ia],
         )
 
         def generar_ruta(
@@ -569,7 +658,8 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             visibilidad = [
                 gr.update(visible=seleccion == "POO · clases y objetos"),
                 gr.update(visible=seleccion == "PostgreSQL · laboratorio"),
-                gr.update(visible=seleccion == "PostgreSQL · seguimiento"),
+                gr.update(visible=seleccion == "PHP MVC · laboratorio"),
+                gr.update(visible=seleccion in SEGUIMIENTOS),  # PostgreSQL y MVC
                 gr.update(visible=seleccion == "Backend con Node.js · laboratorio diagnóstico"),
                 gr.update(visible=node_followup_allowed),
             ]
@@ -581,9 +671,13 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 instruccion = "Responde los cuatro ejercicios. La entrega se acompaña de una lista de revisión, no de una nota automática."
             elif seleccion == "PostgreSQL · laboratorio":
                 instruccion = "Resuelve los cuatro ejercicios SQL. El calificador verificará los resultados y la regla de acreditación."
-            elif seleccion == "PostgreSQL · seguimiento":
+            elif seleccion == "PHP MVC · laboratorio":
+                instruccion = ("Resuelve los cuatro ejercicios de MVC eligiendo una opción en cada criterio. "
+                               "Se acredita con 3 de 4 ejercicios correctos, incluida la integradora.")
+            elif seleccion in SEGUIMIENTOS:
+                obtener_variante, _ = SEGUIMIENTOS[seleccion]
                 try:
-                    variante, preguntas = obtener_variante_seguimiento(
+                    variante, preguntas = obtener_variante(
                         nuevo["variantes_usadas"]
                     )
                 except ValueError as exc:
@@ -646,7 +740,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             )
 
         seleccion_outputs = [
-            grupo_poo, grupo_laboratorio, grupo_seguimiento,
+            grupo_poo, grupo_laboratorio, grupo_mvc, grupo_seguimiento,
             grupo_laboratorio_node, grupo_seguimiento_node,
             *preguntas_seg, *respuestas_seg,
             *preguntas_seg_node, *respuestas_seg_node,
@@ -682,9 +776,12 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 return (
                     estado_actual, f"## No se guardó el resultado\n\n{exc}",
                     md_ruta, figura, detalle, tema_update,
-                    gr.update(selected="resultados"),
+                    gr.update(selected="resultados"), gr.update(), gr.update(), gr.update(),
                 )
 
+            retroalimentacion = _retroalimentacion_local(
+                resultado, estado_actual["perfil"].get("formato")
+            )
             nuevo = dict(estado_actual)
             nuevo["completados"] = temas_acreditados(guardado)
             nuevo["intentos"] = guardado["intentos"]
@@ -697,9 +794,12 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             _actualizar_recomendacion(motor, nuevo)
             md_ruta, figura, detalle, tema_update = _vista_ruta(motor, catalogo, nuevo)
             return (
-                nuevo, _resultado_markdown(resultado, resultado.get("retroalimentacion")), md_ruta, figura, detalle,
+                nuevo, _resultado_markdown(resultado, retroalimentacion), md_ruta, figura, detalle,
                 tema_update,
                 gr.update(selected="resultados"),
+                "",  # explicación anterior: se limpia porque es de otro intento
+                gr.update(**_boton_ia(resultado.get("tipo") != "poo")),
+                gr.update(visible=False),
             )
 
         def entregar_poo(*valores):
@@ -727,14 +827,30 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             resultado = calificar_laboratorio(
                 respuestas, tiempo=max(0.0, time.monotonic() - inicio),
             )
+            resultado["respuestas"] = respuestas  # contexto para la explicación con IA
+            return registrar_resultado(resultado, estado_actual)
+
+        def calificar_lab_mvc(*valores):
+            estado_actual = valores[-1]
+            respuestas = {
+                criterio_id: respuesta or ""
+                for criterio_id, respuesta in zip(criterios_mvc, valores[:-1])
+            }
+            inicio = estado_actual.get("inicio_actividad") or time.monotonic()
+            resultado = calificar_laboratorio_mvc(
+                respuestas, tiempo=max(0.0, time.monotonic() - inicio),
+            )
+            resultado["respuestas"] = respuestas
             return registrar_resultado(resultado, estado_actual)
 
         def calificar_seg(*valores):
             estado_actual = valores[-1]
             variante = estado_actual.get("variante_activa")
-            if not variante:
+            seleccion = estado_actual.get("tipo_actividad")
+            if not variante or seleccion not in SEGUIMIENTOS:
                 raise ValueError("Selecciona una variante de seguimiento antes de calificar.")
-            variante_actual, preguntas = obtener_variante_seguimiento(
+            obtener_variante, calificar = SEGUIMIENTOS[seleccion]
+            variante_actual, preguntas = obtener_variante(
                 estado_actual["variantes_usadas"]
             )
             if variante_actual != variante:
@@ -743,7 +859,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 pregunta["id"]: respuesta or ""
                 for pregunta, respuesta in zip(preguntas, valores[:-1])
             }
-            resultado = calificar_seguimiento(
+            resultado = calificar(
                 respuestas,
                 tiempo=max(
                     0.0,
@@ -751,6 +867,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 ),
                 variante_usada=variante,
             )
+            resultado["respuestas"] = respuestas
             nuevo = dict(estado_actual)
             nuevo["variantes_usadas"] = list(nuevo["variantes_usadas"]) + [variante]
             return registrar_resultado(resultado, nuevo)
@@ -803,7 +920,57 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
 
         resultado_outputs = [
             estado, resultados, resumen_ruta, grafo, detalle_grafo, tema_grafo, navegacion,
+            explicacion_ia, pedir_ia, cargando_ia,
         ]
+        enviar_mvc.click(
+            fn=calificar_lab_mvc,
+            inputs=[*respuestas_mvc, estado],
+            outputs=resultado_outputs,
+        )
+
+        def mostrar_cargando_ia():
+            """Paso 1 (inmediato): bloquea el botón y muestra el círculo de carga."""
+            return (
+                gr.update(**_boton_ia(False, "Generando explicación…")),
+                gr.update(visible=True),
+                "",
+            )
+
+        def pedir_explicacion(estado_actual):
+            """Paso 2: llama a Gemini (o al respaldo) y deja el botón en el estado lógico."""
+            resultado = estado_actual.get("resultado")
+            if not resultado:
+                return ("Primero completa una actividad calificada.",
+                        gr.update(**_boton_ia(False)), gr.update(visible=False))
+            if resultado.get("tipo") == "poo":
+                return ("La práctica de POO no tiene calificación automática; la explicación con IA "
+                        "está disponible para los laboratorios y seguimientos calificados.",
+                        gr.update(**_boton_ia(False)), gr.update(visible=False))
+            try:
+                explicacion = solicitar_explicacion(
+                    resultado, estado_actual["perfil"].get("formato")
+                )
+            except Exception as exc:  # nunca dejar el botón bloqueado
+                return (f"No se pudo generar la explicación: {exc}",
+                        gr.update(**_boton_ia(True, "Reintentar explicación con IA (Gemini)")),
+                        gr.update(visible=False))
+            if explicacion.get("origen") == "gemini":
+                boton = _boton_ia(False, "Explicación con IA generada")
+            else:  # Gemini falló: se mostró el respaldo local y se puede reintentar
+                boton = _boton_ia(True, "Reintentar explicación con IA (Gemini)")
+            return (renderizar_retroalimentacion(explicacion), gr.update(**boton),
+                    gr.update(visible=False))
+
+        pedir_ia.click(
+            fn=mostrar_cargando_ia,
+            outputs=[pedir_ia, cargando_ia, explicacion_ia],
+            queue=False, show_progress="hidden", trigger_mode="once",
+        ).then(
+            fn=pedir_explicacion,
+            inputs=estado,
+            outputs=[explicacion_ia, pedir_ia, cargando_ia],
+            show_progress="hidden", concurrency_limit=1,
+        )
         enviar_poo.click(
             fn=entregar_poo,
             inputs=[*respuestas_poo, estado],

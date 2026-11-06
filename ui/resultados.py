@@ -80,20 +80,37 @@ def presentar_resultado(estado, resultado, retroalimentacion=None):
 
 
 def renderizar_retroalimentacion(retroalimentacion):
+    """Misma presentación para la retroalimentación local (Plan B) y la de Gemini (Plan A)."""
     if not retroalimentacion:
         return "**Retroalimentación:** todavía no disponible."
     if not isinstance(retroalimentacion, dict):
         return "**Retroalimentación:** formato no reconocido; se conserva la calificación."
     partes = []
-    for clave, etiqueta in (("comentario", "Comentario"), ("pista", "Pista")):
+    origen = retroalimentacion.get("origen")
+    if origen:
+        partes.append("#### Retroalimentación")
+        if origen == "gemini":
+            modelo = retroalimentacion.get("modelo")
+            partes.append(f"_Generada con Gemini{f' ({modelo})' if modelo else ''}._")
+        else:
+            partes.append("_Basada en la rúbrica de evaluación._")
+        if retroalimentacion.get("motivo_respaldo"):
+            motivo = str(retroalimentacion["motivo_respaldo"]).rstrip(".")
+            partes.append(f"_Explicación con IA no disponible. Motivo: {motivo}._")
+    if retroalimentacion.get("concepto_nombre"):
+        partes.append(f"**Concepto a reforzar:** {retroalimentacion['concepto_nombre']}")
+    for clave, etiqueta in (("acierto", "Fortaleza"),
+                            ("mejora", "Área de mejora"),
+                            ("comentario", "Comentario"),
+                            ("pista", "Sugerencia")):
         if retroalimentacion.get(clave):
             partes.append(f"**{etiqueta}:** {retroalimentacion[clave]}")
     recurso = retroalimentacion.get("recurso")
     if isinstance(recurso, dict):
-        titulo, enlace = recurso.get("titulo", "Recurso recomendado"), recurso.get("enlace")
-        formato = recurso.get("formato")
+        titulo, enlace = recurso.get("titulo", "Material recomendado"), recurso.get("enlace")
+        detalles = ", ".join(x for x in (recurso.get("formato"), recurso.get("fuente")) if x)
         texto = f"[{titulo}]({enlace})" if enlace else titulo
-        partes.append(f"**Recurso:** {texto}" + (f" ({formato})" if formato else ""))
+        partes.append(f"**Material recomendado:** {texto}" + (f" — {detalles}" if detalles else ""))
     elif isinstance(recurso, str) and recurso.strip():
-        partes.append(f"**Recurso:** {recurso}")
+        partes.append(f"**Material recomendado:** {recurso}")
     return "\n\n".join(partes) if partes else "**Retroalimentación:** no recibida."

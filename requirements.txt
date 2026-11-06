@@ -3,3 +3,5 @@ scikit-learn
 networkx
 matplotlib
 gradio
+certifi
+pytest

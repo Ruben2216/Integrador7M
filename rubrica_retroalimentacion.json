@@ -1,0 +1,215 @@
+{
+    "_descripcion": "Rúbrica de retroalimentación (Integrante 5). Por tema: textos por concepto (acierto, mejora, pista, recurso del catálogo) y textos más específicos por criterio. El orden de los conceptos es el orden de desempate cuando dos conceptos acumulan los mismos fallos. Un criterio con \"generico\": true (p. ej. 'el resultado coincide') solo se usa si no falló otro criterio más específico del mismo ejercicio.",
+    "temas": {
+        "Bases_de_Datos_PostgreSQL": {
+            "conceptos": {
+                "WHERE": {
+                    "nombre": "Filtros con WHERE",
+                    "acierto": "Filtras correctamente las filas con WHERE: solo llegan al resultado las que cumplen la condición.",
+                    "mejora": "Algunas consultas no filtran las filas esperadas: la condición deja pasar filas de más o descarta filas válidas.",
+                    "pista": "Antes de escribir el WHERE, define qué fila debe quedar y cuál no; después revisa la columna, el operador (=, >, LIKE) y las comillas del texto.",
+                    "recurso": "Recurso_Lectura_WHERE"
+                },
+                "JOIN": {
+                    "nombre": "Uniones con JOIN",
+                    "acierto": "Unes correctamente tablas relacionadas con JOIN usando la llave que las conecta.",
+                    "mejora": "La unión de tablas no conserva todas las filas que pide el enunciado.",
+                    "pista": "Si faltan clientes sin pedidos, revisa cómo conservar las filas de la tabla de clientes: LEFT JOIN mantiene todas las filas de la tabla de la izquierda aunque no tengan coincidencia.",
+                    "recurso": "Recurso_Lectura_LEFT_JOIN"
+                },
+                "GROUP_BY": {
+                    "nombre": "Agrupaciones con GROUP BY",
+                    "acierto": "Agrupas filas y calculas conteos por grupo correctamente con GROUP BY.",
+                    "mejora": "Los grupos o los conteos no coinciden con el resultado esperado.",
+                    "pista": "Toda columna del SELECT que no esté dentro de COUNT o SUM debe aparecer en el GROUP BY; para filtrar grupos se usa HAVING, no WHERE.",
+                    "recurso": "Recurso_Lectura_GROUP_BY"
+                },
+                "INTEGRADORA": {
+                    "nombre": "Consulta integradora",
+                    "acierto": "Combinas unión, agregación y orden en una sola consulta.",
+                    "mejora": "La consulta integradora todavía no combina bien la unión, la agregación y los valores por defecto.",
+                    "pista": "Construye la consulta por capas: primero el LEFT JOIN, luego GROUP BY con COUNT y SUM, y al final COALESCE(..., 0) y ORDER BY.",
+                    "recurso": "Recurso_Referencia_TABLE_EXPR"
+                }
+            },
+            "criterios": {
+                "C01-WHERE": {
+                    "mejora": "El filtro por ciudad no devuelve exactamente a los clientes de Guadalajara.",
+                    "pista": "Compara la ciudad con = 'Guadalajara' (texto entre comillas simples) y verifica que ninguna otra condición agregue o quite filas.",
+                    "generico": true
+                },
+                "C01-COLS": {
+                    "mejora": "El resultado no tiene exactamente las columnas nombre y correo.",
+                    "pista": "Selecciona solo las columnas pedidas; con SELECT * aparecen columnas de más."
+                },
+                "C02-JOIN": {
+                    "mejora": "En la unión faltan los clientes que no tienen pedidos.",
+                    "pista": "Si faltan clientes sin pedidos, revisa cómo conservar las filas de la tabla de clientes: un INNER JOIN los elimina, un LEFT JOIN que parte de clientes los mantiene.",
+                    "generico": true
+                },
+                "C02-NULLS": {
+                    "mejora": "Los clientes sin pedidos no aparecen con total NULL.",
+                    "pista": "Si faltan clientes sin pedidos, revisa cómo conservar las filas de la tabla de clientes: con clientes a la izquierda del LEFT JOIN, su total queda en NULL."
+                },
+                "C03-GROUP": {
+                    "mejora": "El conteo de clientes por ciudad no coincide con lo esperado.",
+                    "pista": "Agrupa por la columna ciudad y cuenta con COUNT(*) dentro de cada grupo.",
+                    "generico": true
+                },
+                "C03-COUNT": {
+                    "mejora": "El resultado no devuelve exactamente dos columnas: la ciudad y la cantidad.",
+                    "pista": "Selecciona la ciudad y un COUNT(*) con alias; nada más."
+                },
+                "C04-LEFT": {
+                    "mejora": "La consulta integradora no devuelve a todos los clientes con sus totales correctos.",
+                    "pista": "Parte de clientes LEFT JOIN pedidos para no perder a quien no tiene pedidos, y agrupa por cliente.",
+                    "generico": true
+                },
+                "C04-AGG": {
+                    "mejora": "Faltan columnas de agregación: la cantidad de pedidos y el monto total.",
+                    "pista": "Necesitas tres columnas: el nombre, un COUNT de los pedidos y un SUM del total."
+                },
+                "C04-ZERO": {
+                    "mejora": "Los clientes sin pedidos muestran NULL en lugar de 0.",
+                    "pista": "Envuelve la suma con COALESCE(..., 0) y cuenta una columna de pedidos (no *), así quien no tiene pedidos obtiene 0."
+                }
+            },
+            "general": {
+                "acierto_total": "Resolviste todo correctamente: dominas WHERE, JOIN y GROUP BY trabajando juntos.",
+                "mejora_total": "No hay criterios pendientes en este intento.",
+                "pista_avance": "Para consolidarlo, escribe la consulta integradora con otras tablas (por ejemplo productos y ventas) sin mirar la solución.",
+                "recurso": "Recurso_Referencia_TABLE_EXPR"
+            }
+        },
+        "Patron_MVC_en_PHP": {
+            "conceptos": {
+                "RESPONSABILIDADES_CAPA": {
+                    "nombre": "Responsabilidades por capa",
+                    "acierto": "Distingues qué hace cada capa: el modelo maneja datos y reglas, la vista presenta y el controlador coordina.",
+                    "mejora": "Confundes la responsabilidad de alguna de las capas.",
+                    "pista": "Hazte tres preguntas: ¿toca la base de datos o una regla del negocio? → Modelo. ¿Produce HTML? → Vista. ¿Lee la petición y decide qué hacer? → Controlador.",
+                    "recurso": "Recurso_Lectura_MVC_Capas"
+                },
+                "FLUJO_PETICION": {
+                    "nombre": "Flujo de una petición",
+                    "acierto": "Conoces el recorrido de una petición: enrutador → controlador → modelo → vista.",
+                    "mejora": "El orden en que la petición recorre las capas no es correcto.",
+                    "pista": "Sigue la petición como un paquete: entra por index.php (enrutador), el controlador la atiende, pide datos al modelo y al final la vista arma la respuesta. La vista siempre es el último paso.",
+                    "recurso": "Recurso_Lectura_MVC_Ciclo"
+                },
+                "CORRECCION_CAPA": {
+                    "nombre": "Responsabilidad mal asignada",
+                    "acierto": "Detectas el código que está en la capa equivocada y sabes a dónde moverlo.",
+                    "mejora": "Todavía no identificas qué parte de un código mezclado pertenece a cada capa.",
+                    "pista": "Busca señales: SQL o PDO fuera del modelo, echo o HTML fuera de la vista, reglas del negocio dentro del controlador. Cada señal es algo que debe moverse a su capa.",
+                    "recurso": "Recurso_Practica_PHP"
+                },
+                "INTEGRADORA_MVC": {
+                    "nombre": "Operación completa MVC",
+                    "acierto": "Haces pasar una operación completa por modelo, vista y controlador, tanto con datos válidos como con errores.",
+                    "mejora": "La operación completa (guardar con validación) no reparte bien el trabajo entre las capas.",
+                    "pista": "Recorre los dos caminos: con datos inválidos el modelo rechaza y el controlador vuelve al formulario con el error; con datos válidos el modelo guarda y el controlador redirige al listado.",
+                    "recurso": "Recurso_Lectura_MVC_Validacion"
+                }
+            },
+            "criterios": {
+                "M01-MODELO": {
+                    "mejora": "No ubicaste la consulta con PDO en el modelo.",
+                    "pista": "Todo lo que lee o escribe en la base de datos (PDO, SQL) pertenece al modelo."
+                },
+                "M01-VISTA": {
+                    "mejora": "No ubicaste el fragmento de HTML en la vista.",
+                    "pista": "Si el código produce HTML para el usuario, es vista; observa también que escapa los datos con htmlspecialchars."
+                },
+                "M01-CONTROLADOR": {
+                    "mejora": "No reconociste al controlador como quien coordina la petición.",
+                    "pista": "El código que lee $_GET, llama al modelo y elige qué vista cargar es el controlador: no guarda datos ni dibuja HTML, solo coordina."
+                },
+                "M02-PASO1": {
+                    "mejora": "El primer paso de la petición no es el correcto.",
+                    "pista": "Antes de que trabaje cualquier capa, alguien tiene que leer la URL y decidir qué controlador la atiende: ese es el enrutador."
+                },
+                "M02-PASO2": {
+                    "mejora": "El segundo paso no corresponde al controlador.",
+                    "pista": "Una vez elegido el controlador, este lee los datos de la petición (el id) y se los pasa al modelo."
+                },
+                "M02-PASO3": {
+                    "mejora": "El tercer paso no corresponde al modelo.",
+                    "pista": "Los datos del producto se obtienen después de que el controlador los pide; ese trabajo es del modelo."
+                },
+                "M02-PASO4": {
+                    "mejora": "El último paso no es la vista.",
+                    "pista": "La vista solo puede generar el HTML cuando ya tiene los datos, por eso siempre es el último paso."
+                },
+                "M03-DETECTA": {
+                    "mejora": "No identificaste que el controlador hace el trabajo de las otras dos capas.",
+                    "pista": "Cuenta cuántas cosas hace el método: conecta a la base, consulta y escribe HTML. Un controlador solo debería coordinar."
+                },
+                "M03-SQL": {
+                    "mejora": "La conexión y la consulta SQL no quedaron en el modelo.",
+                    "pista": "La conexión PDO y la consulta se mueven a un método del modelo (por ejemplo todos()) que devuelve un arreglo de productos."
+                },
+                "M03-HTML": {
+                    "mejora": "La generación del HTML no quedó en la vista.",
+                    "pista": "Los echo con <ul> y <li> se convierten en una plantilla de vista que recorre los productos y escapa cada valor con htmlspecialchars."
+                },
+                "M03-CONTROLADOR": {
+                    "mejora": "No quedó claro qué debe conservar el controlador.",
+                    "pista": "Después de la corrección, el controlador queda con dos líneas: pedir los productos al modelo y entregarlos a la vista."
+                },
+                "M04-CONTROLADOR": {
+                    "mejora": "El controlador de la operación «guardar» no tiene la responsabilidad correcta.",
+                    "pista": "guardar() lee $_POST, delega la validación y el guardado al modelo y, según el resultado, muestra el formulario o redirige."
+                },
+                "M04-MODELO": {
+                    "mejora": "La regla del precio y el INSERT no quedaron en el modelo.",
+                    "pista": "Las reglas del negocio (precio mayor que 0) y la persistencia (INSERT) son del modelo; así se reutilizan desde cualquier controlador."
+                },
+                "M04-ERROR": {
+                    "mejora": "El caso con datos inválidos no se maneja como en MVC.",
+                    "pista": "Con datos inválidos no se guarda nada: el controlador vuelve a mostrar la vista del formulario con el mensaje que devolvió el modelo."
+                },
+                "M04-EXITO": {
+                    "mejora": "La respuesta tras guardar correctamente no es la adecuada.",
+                    "pista": "Después de un POST exitoso se redirige a GET /productos (POST/Redirect/GET), así recargar la página no vuelve a enviar el formulario."
+                }
+            },
+            "general": {
+                "acierto_total": "Resolviste todo correctamente: separas modelo, vista y controlador y sigues bien el flujo de una petición.",
+                "mejora_total": "No hay criterios pendientes en este intento.",
+                "pista_avance": "Para consolidarlo, toma un archivo PHP «plano» que mezcle SQL y HTML y sepáralo tú en modelo, vista y controlador.",
+                "recurso": "Recurso_Practica_PHP"
+            }
+        },
+        "Logica_de_Programacion": {
+            "conceptos": {},
+            "criterios": {},
+            "general": {
+                "acierto_total": "Completaste la actividad de Lógica de Programación.",
+                "mejora_total": "Revisa las condiciones y los ciclos de los ejercicios que no salieron.",
+                "pista_avance": "Prueba tu solución a mano con valores límite (0, negativos, el último elemento) antes de ejecutarla.",
+                "recurso": "Recurso_Lectura_Logica"
+            }
+        },
+        "Programacion_Orientada_a_Objetos": {
+            "conceptos": {},
+            "criterios": {},
+            "general": {
+                "acierto_total": "Entregaste la práctica de Programación Orientada a Objetos.",
+                "mejora_total": "Compara cada respuesta con la lista de revisión: atributos, comportamiento, encapsulamiento y colaboración.",
+                "pista_avance": "Verifica que cada clase proteja su estado: los cambios deben pasar por métodos que validen los datos.",
+                "recurso": "Recurso_Lectura_POO"
+            }
+        },
+        "Backend_con_Nodejs": {
+            "conceptos": {},
+            "criterios": {},
+            "general": {
+                "acierto_total": "Completaste la actividad de Backend con Node.js.",
+                "mejora_total": "Revisa el método HTTP, la ruta y el código de estado de cada respuesta.",
+                "pista_avance": "Para cada endpoint, escribe método, ruta, validación y código de respuesta antes de programarlo.",
+                "recurso": "Recurso_Video_Node"
+            }
+        }
+    }
+}
