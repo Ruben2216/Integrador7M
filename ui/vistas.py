@@ -359,6 +359,54 @@ def tema_detalle_html(
 
 
 # ── Actividad ───────────────────────────────────────────────────────────────
+def actividad_avance_html(respondidos: Sequence[bool], indice: int, seguimiento: bool) -> str:
+    etiqueta = "Pregunta" if seguimiento else "Ejercicio"
+    unidad = "preguntas respondidas" if seguimiento else "ejercicios respondidos"
+    pasos = []
+    for numero, respondido in enumerate(respondidos):
+        activo = numero == indice
+        estado = ("respondida" if seguimiento else "respondido") if respondido else "pendiente"
+        actual = ' aria-current="step"' if activo else ""
+        pasos.append(
+            f'<li class="{"answered" if respondido else ""}"{actual} '
+            f'aria-label="{etiqueta} {numero + 1}: {estado}{", actual" if activo else ""}">'
+            f'{numero + 1}</li>'
+        )
+    return (
+        '<section aria-label="Resumen de avance" aria-live="polite">'
+        '<h3>Tu avance</h3>'
+        f'<p class="activity-caption">{sum(respondidos)} de {len(respondidos)} {unidad}</p>'
+        f'<ol class="activity-steps">{"".join(pasos)}</ol>'
+        '<p class="activity-caption">Borde verde: paso actual. Fondo verde: respuesta completa.</p>'
+        '<p class="activity-caption">Usa Anterior y Siguiente para revisar tus respuestas antes de enviar.</p>'
+        '</section>'
+    )
+
+
+def actividad_enunciado_html(item: Mapping[str, Any], concepto: str | None = None) -> str:
+    titulo = item.get("titulo") or concepto or item.get("concepto", "Ejercicio")
+    return (
+        '<header class="activity-prompt">'
+        f'<p class="activity-meta">{e(item.get("id"))} · {e(item.get("dificultad", ""))}</p>'
+        f'<h3>{e(titulo)}</h3>'
+        f'<p>{e(item.get("enunciado") or item.get("pregunta", ""))}</p>'
+        '</header>'
+    )
+
+
+def actividad_codigo_html(codigo: str) -> str:
+    return f'<pre class="activity-code"><code>{e(codigo)}</code></pre>'
+
+
+def actividad_fragmentos_mvc(item: Mapping[str, Any]) -> dict[str, str]:
+    """Separa sólo fragmentos etiquetados por el propio banco, sin alterar el código."""
+    partes = re.split(r"(?m)^(// Fragmento [A-Z])\r?\n", item.get("codigo", ""))
+    return {
+        partes[i].removeprefix("// "): partes[i] + "\n" + partes[i + 1].rstrip()
+        for i in range(1, len(partes), 2)
+    }
+
+
 def catalogo_nota_html(estados: Mapping[str, tuple[str, Sequence[str]]], actividades: Mapping[str, str]) -> str:
     filas = []
     for tema, (estado, faltantes) in estados.items():

@@ -49,6 +49,7 @@ from retroalimentacion import (
     solicitar_explicacion,
 )
 from ui import vistas
+from ui.actividad import VistaActividad
 from ui.resultados import renderizar_retroalimentacion
 from ui.estilos import CSS
 
@@ -415,7 +416,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
         "Bases de Datos PostgreSQL": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
         "Backend con Node.js": "Laboratorio (5 puntos) o seguimiento (5 preguntas)",
         "Lógica de Programación": "Evaluación no disponible",
-        "Patrón MVC en PHP": "Evaluación no disponible",
+        "Patrón MVC en PHP": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
     }
     estados_actividad = {
         tema: _estado_del_tema(motor, tema, estado_inicial["completados"])
@@ -431,6 +432,73 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
 
     criterios_mvc: list[str] = []
 
+    # Estos montajes conservan el orden de entradas que reciben los calificadores.
+    def montar_poo(ejercicio, numero):
+        gr.HTML(vistas.actividad_enunciado_html(ejercicio))
+        return [gr.Textbox(lines=6, label=f"Respuesta {ejercicio['id']}")]
+
+    def montar_sql(ejercicio, numero):
+        gr.HTML(vistas.actividad_enunciado_html(ejercicio))
+        return [gr.Textbox(lines=10, label=f"Consulta SQL · {ejercicio['id']}",
+                           elem_classes=["activity-editor"])]
+
+    def ayuda_sql(ejercicio):
+        gr.HTML(vistas.actividad_referencia_html({"modo": "sql"}, ejercicio))
+        with gr.Accordion("Filas de ejemplo", open=False):
+            gr.HTML(vistas.lab_datos_html(ejercicio))
+
+    def montar_mvc(ejercicio, numero):
+        gr.HTML(vistas.actividad_enunciado_html(
+            ejercicio, conceptos_mvc.get(ejercicio["concepto"], ejercicio["concepto"])
+        ))
+        fragmentos = vistas.actividad_fragmentos_mvc(ejercicio)
+        if ejercicio.get("codigo") and not fragmentos:
+            gr.HTML(vistas.actividad_codigo_html(ejercicio["codigo"]))
+        controles = []
+        for criterio in ejercicio["criterios"]:
+            with gr.Group(elem_classes=["activity-criterion"]):
+                for nombre, codigo in fragmentos.items():
+                    if criterio["pregunta"].startswith(nombre):
+                        gr.HTML(vistas.actividad_codigo_html(codigo))
+                criterios_mvc.append(criterio["id"])
+                controles.append(gr.Radio(
+                    criterio["opciones"], label=criterio["pregunta"], value=None,
+                    elem_classes=["activity-options"],
+                ))
+        return controles
+
+    def ayuda_mvc(ejercicio):
+        gr.HTML(
+            '<h3>Para este ejercicio</h3>'
+            f'<p class="activity-caption">{vistas.e(ejercicio.get("criterio_evaluacion", ""))}</p>'
+            '<details class="activity-help-details"><summary>Cómo se acredita</summary>'
+            '<p class="activity-caption">Se requieren 3 de 4 ejercicios correctos, '
+            'incluida la integradora.</p></details>'
+        )
+
+    ejemplos_node = (
+        "Método y estado HTTP (ejemplo: GET, 200)",
+        "Ruta y acceso al parámetro (ejemplo: /libros/:id, req.params.id)",
+        "Validación y error antes de guardar (ejemplo: nombre obligatorio; 400; no crear)",
+        "Crear y consultar (ejemplo: POST /productos 201; GET /productos 200)",
+    )
+
+    def montar_node(ejercicio, numero):
+        gr.HTML(vistas.actividad_enunciado_html(ejercicio))
+        return [gr.Textbox(lines=5, label=f"Respuesta Node.js · {ejercicio['id']}",
+                           placeholder=ejemplos_node[numero])]
+
+    preguntas_seg = []
+    preguntas_seg_node = []
+
+    def montar_seguimiento(item, numero):
+        preguntas_seg.append(gr.Markdown(elem_classes=["activity-prompt"]))
+        return [gr.Radio([], label=f"Respuesta {numero + 1}", elem_classes=["activity-options"])]
+
+    def montar_seguimiento_node(item, numero):
+        preguntas_seg_node.append(gr.Markdown(elem_classes=["activity-prompt"]))
+        return [gr.Radio([], label=f"Respuesta Node.js {numero + 1}", elem_classes=["activity-options"])]
+
     with gr.Blocks(title="Rutas de aprendizaje · Proyecto Integrador") as demo:
         estado = gr.State(estado_inicial)
 
@@ -443,7 +511,6 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                   <h1>Rutas de aprendizaje</h1>
                   <p class="tagline">Un recorrido claro: diagnóstico, práctica y ruta que se adapta.</p>
                 </div>
-                <span class="student-note">Simulación local · un estudiante</span>
               </div>
             </header>
             """,
@@ -532,13 +599,14 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 tema_grafo_sel = vr[5]
 
             # ── Actividad ──────────────────────────────────────────────────
-            with gr.Tab("Actividad", id="actividad"):
+            with gr.Tab("Actividad", id="actividad", elem_id="activity-view"):
                 gr.HTML(
-                    "<span class='eyebrow'>Catálogo de actividades</span>"
+                    "<header class='activity-lead'><span class='activity-eyebrow'>Catálogo de actividades</span>"
                     "<h2>Elige qué quieres practicar</h2>"
-                    "<p class='muted reading'>Cada tarjeta indica el tema, el tipo, la cantidad de ejercicios y el modo de evaluación real disponible.</p>"
+                    "<p class='activity-caption'>Selecciona una actividad y resuelve cada paso con el avance y la ayuda a la vista.</p></header>"
                 )
-                gr.HTML(catalogo_disponibilidad_html, elem_id="catalogo-disponibilidad")
+                with gr.Accordion("Disponibilidad de actividades", open=True):
+                    gr.HTML(catalogo_disponibilidad_html, elem_id="catalogo-disponibilidad")
                 actividad_selector = gr.Radio(
                     [
                         "POO · clases y objetos",
@@ -549,74 +617,54 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                         "PHP MVC · laboratorio",
                         "PHP MVC · seguimiento",
                     ],
-                    value=None, label="Actividad",
+                    value=None, label="Actividad", elem_classes=["activity-catalog"],
                 )
-                instrucciones = gr.Markdown()
+                instrucciones = gr.Markdown(elem_classes=["activity-instructions"])
 
                 with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_poo:
-                    gr.HTML("### Programación Orientada a Objetos · ejercicios asignados")
-                    respuestas_poo = []
-                    for ejercicio in banco_poo["ejercicios"]:
-                        gr.HTML(
-                            f"<h4>{ejercicio['id']} · {ejercicio['concepto']} — {ejercicio['titulo']}</h4>"
-                            f"<p class='reading'>{ejercicio['enunciado']}</p>"
-                        )
-                        respuestas_poo.append(gr.Textbox(lines=4, label=f"Respuesta {ejercicio['id']}"))
-                    enviar_poo = gr.Button("Entregar práctica POO", variant="primary")
-
-                with gr.Group(visible=False) as grupo_laboratorio:
-                    gr.HTML("### Laboratorio PostgreSQL · cuatro ejercicios")
-                    respuestas_lab = []
-                    for ejercicio in ejercicios_lab:
-                        gr.HTML(
-                            f"<h4>{ejercicio['id']} · {ejercicio['concepto']} ({ejercicio['dificultad']})</h4>"
-                            f"<p class='reading'>{ejercicio['enunciado']}</p>"
-                        )
-                        respuestas_lab.append(gr.Textbox(lines=3, label=f"Consulta SQL · {ejercicio['id']}"))
-                    enviar_lab = gr.Button("Calificar laboratorio", variant="primary")
-
-                with gr.Group(visible=False) as grupo_mvc:
-                    gr.HTML("### Laboratorio Patrón MVC en PHP · cuatro ejercicios")
-                    respuestas_mvc = []
-                    for ejercicio in ejercicios_mvc:
-                        codigo = (f"\n\n```php\n{ejercicio['codigo']}\n```" if ejercicio.get("codigo") else "")
-                        gr.HTML(
-                            f"<h4>{ejercicio['id']} · {conceptos_mvc.get(ejercicio['concepto'], ejercicio['concepto'])} ({ejercicio['dificultad']})</h4>"
-                            f"<p class='reading'>{ejercicio['enunciado']}{codigo}</p>"
-                        )
-                        for criterio in ejercicio["criterios"]:
-                            criterios_mvc.append(criterio["id"])
-                            respuestas_mvc.append(gr.Radio(criterio["opciones"], label=criterio["pregunta"], value=None))
-                    enviar_mvc = gr.Button("Calificar laboratorio MVC", variant="primary")
-
-                with gr.Group(visible=False) as grupo_seguimiento:
-                    gr.HTML("### Actividad de seguimiento · cinco preguntas")
-                    preguntas_seg = [gr.Markdown() for _ in range(5)]
-                    respuestas_seg = [gr.Radio([], label=f"Respuesta {i + 1}") for i in range(5)]
-                    enviar_seg = gr.Button("Calificar seguimiento", variant="primary")
-
-                with gr.Group(visible=False) as grupo_laboratorio_node:
-                    gr.HTML("### Backend con Node.js · laboratorio diagnóstico (5 puntos)")
-                    respuestas_lab_node = []
-                    ejemplos_node = (
-                        "Método y estado HTTP (ejemplo: GET, 200)",
-                        "Ruta y acceso al parámetro (ejemplo: /libros/:id, req.params.id)",
-                        "Validación y error antes de guardar (ejemplo: nombre obligatorio; 400; no crear)",
-                        "Crear y consultar (ejemplo: POST /productos 201; GET /productos 200)",
+                    vista_poo = VistaActividad(
+                        "Programación Orientada a Objetos", banco_poo["ejercicios"], montar_poo,
+                        "Entregar práctica POO",
+                        lambda item: gr.HTML(vistas.actividad_referencia_html({"modo": "poo"}, item)),
                     )
-                    for ejercicio, placeholder in zip(ejercicios_lab_node, ejemplos_node):
-                        gr.HTML(
-                            f"<h4>{ejercicio['id']} · {ejercicio['concepto']} ({ejercicio['dificultad']})</h4>"
-                            f"<p class='reading'>{ejercicio['enunciado']}</p>"
-                        )
-                        respuestas_lab_node.append(gr.Textbox(lines=2, label=f"Respuesta Node.js · {ejercicio['id']}", placeholder=placeholder))
-                    enviar_lab_node = gr.Button("Calificar laboratorio Node.js", variant="primary")
+                    respuestas_poo, enviar_poo = vista_poo.respuestas, vista_poo.enviar
 
-                with gr.Group(visible=False) as grupo_seguimiento_node:
-                    gr.HTML("### Backend con Node.js · seguimiento (5 preguntas)")
-                    preguntas_seg_node = [gr.Markdown() for _ in range(5)]
-                    respuestas_seg_node = [gr.Radio([], label=f"Respuesta Node.js {i + 1}") for i in range(5)]
-                    enviar_seg_node = gr.Button("Calificar seguimiento Node.js", variant="primary")
+                with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_laboratorio:
+                    vista_sql = VistaActividad(
+                        "Laboratorio PostgreSQL", ejercicios_lab, montar_sql,
+                        "Calificar laboratorio", ayuda_sql,
+                    )
+                    respuestas_lab, enviar_lab = vista_sql.respuestas, vista_sql.enviar
+
+                with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_mvc:
+                    vista_mvc = VistaActividad(
+                        "Laboratorio MVC en PHP", ejercicios_mvc, montar_mvc,
+                        "Calificar laboratorio MVC", ayuda_mvc,
+                    )
+                    respuestas_mvc, enviar_mvc = vista_mvc.respuestas, vista_mvc.enviar
+
+                with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_seguimiento:
+                    vista_seg = VistaActividad(
+                        "Actividad de seguimiento", list(range(5)), montar_seguimiento,
+                        "Calificar seguimiento", seguimiento=True,
+                    )
+                    respuestas_seg, enviar_seg = vista_seg.respuestas, vista_seg.enviar
+
+                with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_laboratorio_node:
+                    vista_node = VistaActividad(
+                        "Laboratorio Node.js · 5 puntos", ejercicios_lab_node, montar_node,
+                        "Calificar laboratorio Node.js",
+                    )
+                    respuestas_lab_node, enviar_lab_node = vista_node.respuestas, vista_node.enviar
+
+                with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_seguimiento_node:
+                    vista_seg_node = VistaActividad(
+                        "Seguimiento Node.js", list(range(5)), montar_seguimiento_node,
+                        "Calificar seguimiento Node.js", seguimiento=True,
+                    )
+                    respuestas_seg_node, enviar_seg_node = vista_seg_node.respuestas, vista_seg_node.enviar
+
+                vistas_actividad = [vista_poo, vista_sql, vista_mvc, vista_seg, vista_node, vista_seg_node]
 
             # ── Resultados ─────────────────────────────────────────────────
             with gr.Tab("Resultados", id="resultados"):
@@ -852,8 +900,23 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             instrucciones, estado,
         ]
         tipo_actividad = actividad_selector
+
+        def reiniciar_navegacion_actividades(*valores):
+            actualizaciones = []
+            inicio = 0
+            for vista in vistas_actividad:
+                fin = inicio + len(vista.respuestas)
+                actualizaciones.extend(vista.reiniciar_navegacion(*valores[inicio:fin]))
+                inicio = fin
+            return tuple(actualizaciones)
+
         tipo_actividad.change(
             seleccionar_actividad, [tipo_actividad, estado], seleccion_outputs,
+        ).then(
+            reiniciar_navegacion_actividades,
+            [control for vista in vistas_actividad for control in vista.respuestas],
+            [salida for vista in vistas_actividad for salida in vista.salidas],
+            show_progress="hidden",
         )
 
         def registrar_resultado(resultado, estado_actual):
