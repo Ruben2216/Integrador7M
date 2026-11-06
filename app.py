@@ -1,64 +1,50 @@
-"""Punto de arranque: instancia el motor y monta las vistas de la simulación."""
+"""
+Punto de entrada Gradio. Integra el Motor real con la interfaz general del
+integrante 2 y la persistencia/calificación de los integrantes 3 y 4.
+
+Uso: python app.py [--no-browser] [--port 7860]
+"""
 import argparse
+import os
+import sys
 from pathlib import Path
 
-import gradio as gr
+_DIR = os.path.dirname(os.path.abspath(__file__))
+if _DIR not in sys.path:
+    sys.path.insert(0, _DIR)
 
 from motor import Motor
-from recomendador import FORMATOS, NIVELES, TEMA_A_NODO
-from simulacion import (cambiar_meta, comenzar, configurar_motor, inicializar,
-                        calificar_y_registrar, preparar_reintento, reiniciar)
-from ui.inicio import construir_inicio
-from ui.resultados import (actualizar_preguntas, actualizar_tipo,
-                           construir_resultados)
-
-TEMAS = list(TEMA_A_NODO)
-
-
-def construir_app(motor):
-    configurar_motor(motor)
-    with gr.Blocks(title="Recomendador personalizado de rutas") as demo:
-        gr.Markdown(
-            "# Sistema Inteligente de Recomendación\n"
-            "La ruta se calcula con el motor A* y el progreso local de la simulación."
-        )
-        (meta, formato, nivel, iniciar, aplicar_meta, reiniciar_btn,
-         estado_ui, ruta_ui, aviso) = construir_inicio(TEMAS, FORMATOS, NIVELES)
-        (tipo_actividad, variante, respuestas_lab, respuestas_seg, tiempo,
-         reintentar, enviar, resultado_ui, ruta_resultado, resultado_estado,
-         grupo_laboratorio, grupo_seguimiento) = construir_resultados()
-
-        iniciar.click(comenzar, [meta, formato, nivel], [iniciar, ruta_ui, estado_ui, aviso])
-        aplicar_meta.click(cambiar_meta, [meta, formato, nivel], [ruta_ui, estado_ui, aviso])
-        reiniciar_btn.click(reiniciar, outputs=[iniciar, ruta_ui, estado_ui, aviso])
-        tipo_actividad.change(actualizar_tipo, [tipo_actividad], [grupo_laboratorio, grupo_seguimiento])
-        variante.change(actualizar_preguntas, [variante], respuestas_seg)
-        reintentar.click(
-            preparar_reintento,
-            [tipo_actividad, variante], [variante, resultado_estado],
-        )
-        enviar.click(
-            calificar_y_registrar,
-            [tipo_actividad, variante, *respuestas_lab, *respuestas_seg, tiempo],
-            [resultado_ui, ruta_resultado, resultado_estado],
-        )
-        demo.load(inicializar, outputs=[meta, formato, nivel, iniciar, ruta_ui, estado_ui, aviso])
-    return demo
+from interfaz import construir_interfaz
+import simulacion
+from simulacion import configurar_motor
 
 
 def main():
     parser = argparse.ArgumentParser(description="Recomendador de rutas de aprendizaje")
-    parser.add_argument("--no-browser", action="store_true", help="No abrir navegador automáticamente")
+    parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--port", type=int, default=7860)
     parser.add_argument("--share", action="store_true")
+    parser.add_argument(
+        "--progress-file",
+        type=Path,
+        help="Archivo local para el progreso (útil para aislar una demostración o prueba).",
+    )
     args = parser.parse_args()
 
     print("[app.py] Inicializando motor de recomendación…")
     motor = Motor()
+    if args.progress_file:
+        from progreso import AlmacenProgreso
+
+        simulacion.almacen = AlmacenProgreso(args.progress_file)
+    configurar_motor(motor)
     print("[app.py] Motor listo.")
-    construir_app(motor).launch(
-        server_name="127.0.0.1", server_port=args.port,
-        inbrowser=not args.no_browser, share=args.share,
+    demo = construir_interfaz(motor)
+    demo.launch(
+        server_name="127.0.0.1",
+        server_port=args.port,
+        inbrowser=not args.no_browser,
+        share=args.share,
     )
 
 

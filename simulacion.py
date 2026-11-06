@@ -90,6 +90,11 @@ def registrar_resultado_calificado(resultado, retroalimentacion=None):
         return f"No se registró el resultado: {exc}", "", "Error de registro"
 
 
+def persistir_intento(resultado):
+    """Guarda un resultado normalizado usando la actualización atómica del almacén."""
+    return almacen.guardar_intento(resultado)
+
+
 def calificar_y_registrar(tipo, variante, lab01, lab02, lab03, lab04,
                           seg01, seg02, seg03, seg04, seg05, tiempo):
     try:
