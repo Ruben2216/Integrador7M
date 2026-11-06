@@ -1,54 +1,66 @@
-"""
-app.py — Punto de entrada principal de la aplicación.
-
-Uso:
-    python app.py              # abre la interfaz Gradio en el navegador
-    python app.py --no-browser # solo inicia el servidor, sin abrir el navegador
-
-El módulo motor.py expone el Motor (árbol + grafo + A*).
-Este archivo carga el motor UNA vez y lo conecta a la interfaz Gradio.
-"""
+"""Punto de arranque: instancia el motor y monta las vistas de la simulación."""
 import argparse
-import os
-import sys
+from pathlib import Path
 
-# ── Asegura que el directorio del proyecto esté en el path ──────────────────
-_DIR = os.path.dirname(os.path.abspath(__file__))
-if _DIR not in sys.path:
-    sys.path.insert(0, _DIR)
+import gradio as gr
 
 from motor import Motor
-from recomendador import NIVELES, FORMATOS, TEMA_A_NODO, construir_interfaz
+from recomendador import FORMATOS, NIVELES, TEMA_A_NODO
+from simulacion import (cambiar_meta, comenzar, configurar_motor, inicializar,
+                        calificar_y_registrar, preparar_reintento, reiniciar)
+from ui.inicio import construir_inicio
+from ui.resultados import (actualizar_preguntas, actualizar_tipo,
+                           construir_resultados)
 
-# ── Argumentos de línea de comandos ─────────────────────────────────────────
-parser = argparse.ArgumentParser(description="Recomendador de rutas de aprendizaje")
-parser.add_argument(
-    "--no-browser", action="store_true",
-    help="No abrir el navegador automáticamente al iniciar."
-)
-parser.add_argument(
-    "--port", type=int, default=7860,
-    help="Puerto donde se escucha la interfaz (por defecto 7860)."
-)
-parser.add_argument(
-    "--share", action="store_true",
-    help="Generar enlace público temporal con Gradio Share."
-)
-args = parser.parse_args()
+TEMAS = list(TEMA_A_NODO)
 
-# ── Carga del motor (una sola vez) ───────────────────────────────────────────
-print("[app.py] Inicializando motor de recomendación…")
-motor = Motor()
-print("[app.py] Motor listo.")
 
-# ── Interfaz Gradio ──────────────────────────────────────────────────────────
-# La interfaz base de recomendador.py se pasa a launch() con los parámetros
-# de arranque. El motor ya está integrado.
-demo = construir_interfaz(motor._rec)
+def construir_app(motor):
+    configurar_motor(motor)
+    with gr.Blocks(title="Recomendador personalizado de rutas") as demo:
+        gr.Markdown(
+            "# Sistema Inteligente de Recomendación\n"
+            "La ruta se calcula con el motor A* y el progreso local de la simulación."
+        )
+        (meta, formato, nivel, iniciar, aplicar_meta, reiniciar_btn,
+         estado_ui, ruta_ui, aviso) = construir_inicio(TEMAS, FORMATOS, NIVELES)
+        (tipo_actividad, variante, respuestas_lab, respuestas_seg, tiempo,
+         reintentar, enviar, resultado_ui, ruta_resultado, resultado_estado,
+         grupo_laboratorio, grupo_seguimiento) = construir_resultados()
 
-demo.launch(
-    server_name="0.0.0.0",
-    server_port=args.port,
-    inbrowser=not args.no_browser,
-    share=args.share,
-)
+        iniciar.click(comenzar, [meta, formato, nivel], [iniciar, ruta_ui, estado_ui, aviso])
+        aplicar_meta.click(cambiar_meta, [meta, formato, nivel], [ruta_ui, estado_ui, aviso])
+        reiniciar_btn.click(reiniciar, outputs=[iniciar, ruta_ui, estado_ui, aviso])
+        tipo_actividad.change(actualizar_tipo, [tipo_actividad], [grupo_laboratorio, grupo_seguimiento])
+        variante.change(actualizar_preguntas, [variante], respuestas_seg)
+        reintentar.click(
+            preparar_reintento,
+            [tipo_actividad, variante], [variante, resultado_estado],
+        )
+        enviar.click(
+            calificar_y_registrar,
+            [tipo_actividad, variante, *respuestas_lab, *respuestas_seg, tiempo],
+            [resultado_ui, ruta_resultado, resultado_estado],
+        )
+        demo.load(inicializar, outputs=[meta, formato, nivel, iniciar, ruta_ui, estado_ui, aviso])
+    return demo
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Recomendador de rutas de aprendizaje")
+    parser.add_argument("--no-browser", action="store_true", help="No abrir navegador automáticamente")
+    parser.add_argument("--port", type=int, default=7860)
+    parser.add_argument("--share", action="store_true")
+    args = parser.parse_args()
+
+    print("[app.py] Inicializando motor de recomendación…")
+    motor = Motor()
+    print("[app.py] Motor listo.")
+    construir_app(motor).launch(
+        server_name="127.0.0.1", server_port=args.port,
+        inbrowser=not args.no_browser, share=args.share,
+    )
+
+
+if __name__ == "__main__":
+    main()
