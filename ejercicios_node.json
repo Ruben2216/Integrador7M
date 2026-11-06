@@ -1,0 +1,147 @@
+{
+  "tema": "Backend con Node.js",
+  "recursos": [
+    {
+      "concepto": "HTTP y servidor",
+      "titulo": "Introduction to Node.js",
+      "fuente": "Node.js Learn",
+      "formato": "Lectura",
+      "enlace": "https://nodejs.org/learn/getting-started/introduction-to-nodejs"
+    },
+    {
+      "concepto": "Rutas y parámetros",
+      "titulo": "Express routing",
+      "fuente": "Express.js",
+      "formato": "Lectura",
+      "enlace": "https://expressjs.com/en/guide/routing/"
+    },
+    {
+      "concepto": "Errores y validación",
+      "titulo": "Errors",
+      "fuente": "Node.js API",
+      "formato": "Lectura",
+      "enlace": "https://nodejs.org/api/errors.html"
+    }
+  ],
+  "laboratorio": [
+    {
+      "id": "node-lab-01",
+      "dificultad": "Básico",
+      "concepto": "HTTP y servidor",
+      "enunciado": "Una API recibe GET /salud y debe informar que el servicio está disponible. Indica el método y el código HTTP de éxito habitual.",
+      "rubrica": {
+        "puntos": 1,
+        "criterio": "GET para consultar; 200 para respuesta satisfactoria"
+      },
+      "respuesta": { "metodo": "GET", "estado": 200 }
+    },
+    {
+      "id": "node-lab-02",
+      "dificultad": "Intermedio",
+      "concepto": "Rutas y parámetros",
+      "enunciado": "Completa la ruta de Express para consultar el libro identificado por la URL /libros/42 y obtener el identificador desde req.params.",
+      "rubrica": {
+        "puntos": 1,
+        "criterio": "Ruta /libros/:id y lectura de req.params.id"
+      },
+      "respuesta": { "ruta": "/libros/:id", "lectura": "req.params.id" }
+    },
+    {
+      "id": "node-lab-03",
+      "dificultad": "Avanzado",
+      "concepto": "Validación y errores",
+      "enunciado": "En POST /usuarios, el nombre es obligatorio. Describe la validación y la respuesta cuando falta, sin crear el registro.",
+      "rubrica": {
+        "puntos": 1,
+        "criterio": "Validar antes de persistir; responder 400 (o 422) con error descriptivo"
+      },
+      "respuesta": { "validacion": "nombre presente y no vacío", "estado": 400 }
+    },
+    {
+      "id": "node-lab-04",
+      "dificultad": "Integrador",
+      "concepto": "API CRUD",
+      "enunciado": "Diseña las operaciones para crear un producto y consultar todos los productos. Indica método, ruta y respuesta de éxito.",
+      "rubrica": {
+        "puntos": 2,
+        "criterios": [
+          "POST /productos crea y devuelve el registro (201)",
+          "GET /productos lista los registros (200)"
+        ]
+      },
+      "respuesta": {
+        "crear": { "metodo": "POST", "ruta": "/productos", "estado": 201 },
+        "consultar": { "metodo": "GET", "ruta": "/productos", "estado": 200 }
+      }
+    }
+  ],
+  "seguimiento": {
+    "criterio_aprobacion": "4 de 5",
+    "variantes": [
+      [
+        {
+          "id": "node-q1-a",
+          "concepto": "HTTP",
+          "pregunta": "¿Qué método usarías para recuperar un recurso sin modificarlo?",
+          "respuesta": "GET"
+        },
+        {
+          "id": "node-q2-a",
+          "concepto": "HTTP",
+          "pregunta": "¿Qué estado indica que la solicitud fue procesada correctamente?",
+          "respuesta": "200"
+        },
+        {
+          "id": "node-q3-a",
+          "concepto": "Rutas",
+          "pregunta": "En /cursos/:id, ¿dónde lee Express el valor id?",
+          "respuesta": "req.params.id"
+        },
+        {
+          "id": "node-q4-a",
+          "concepto": "Validación",
+          "pregunta": "¿Debe validarse el cuerpo antes de guardar?",
+          "respuesta": "Sí"
+        },
+        {
+          "id": "node-q5-a",
+          "concepto": "API",
+          "pregunta": "¿Qué método suele crear un nuevo registro?",
+          "respuesta": "POST"
+        }
+      ],
+      [
+        {
+          "id": "node-q1-b",
+          "concepto": "HTTP",
+          "pregunta": "¿Qué método permite consultar /usuarios/8?",
+          "respuesta": "GET"
+        },
+        {
+          "id": "node-q2-b",
+          "concepto": "HTTP",
+          "pregunta": "¿Qué estado suele responder una creación exitosa?",
+          "respuesta": "201"
+        },
+        {
+          "id": "node-q3-b",
+          "concepto": "Rutas",
+          "pregunta": "¿Qué objeto contiene el parámetro :libroId?",
+          "respuesta": "req.params"
+        },
+        {
+          "id": "node-q4-b",
+          "concepto": "Validación",
+          "pregunta": "Si falta un campo obligatorio, ¿se persiste el registro?",
+          "respuesta": "No"
+        },
+        {
+          "id": "node-q5-b",
+          "concepto": "API",
+          "pregunta": "¿Qué método HTTP usarías para enviar datos de creación?",
+          "respuesta": "POST"
+        }
+      ]
+    ]
+  }
+}

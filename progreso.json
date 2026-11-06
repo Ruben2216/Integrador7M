@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "simulacion_activa": true,
+  "meta": "Backend con Node.js",
+  "formato_preferido": "Práctico",
+  "nivel": "Principiante",
+  "tema_actual": "Lógica de Programación",
+  "temas_acreditados": {},
+  "intentos": [
+    {
+      "id": "demo-001",
+      "tema": "Backend con Node.js",
+      "tipo_actividad": "Laboratorio",
+      "puntaje": 3,
+      "tiempo_segundos": 300,
+      "conceptos_con_error": [
+        "JOIN"
+      ],
+      "aprobado": false,
+      "criterios_cumplidos": "3 de 5; criterio de demostración: 4 de 5",
+      "fecha": "2026-11-06T08:09:47.673534+00:00"
+    },
+    {
+      "id": "demo-90512736f724",
+      "tema": "Backend con Node.js",
+      "tipo_actividad": "Laboratorio",
+      "puntaje": 3,
+      "tiempo_segundos": 300,
+      "conceptos_con_error": [
+        "JOIN"
+      ],
+      "aprobado": false,
+      "criterios_cumplidos": "3 de 5; criterio de demostración: 4 de 5",
+      "fecha": "2026-11-06T14:10:51.566025+00:00"
+    },
+    {
+      "id": "demo-2e4e90914cdb",
+      "tema": "Lógica de Programación",
+      "tipo_actividad": "Laboratorio",
+      "puntaje": 3,
+      "tiempo_segundos": 300,
+      "conceptos_con_error": [
+        "JOIN"
+      ],
+      "aprobado": false,
+      "criterios_cumplidos": "3 de 5; criterio de demostración: 4 de 5",
+      "fecha": "2026-11-06T14:11:00.796830+00:00"
+    },
+    {
+      "id": "demo-a753afbaddc9",
+      "tema": "Backend con Node.js",
+      "tipo_actividad": "Laboratorio",
+      "puntaje": 3,
+      "tiempo_segundos": 300,
+      "conceptos_con_error": [
+        "JOIN"
+      ],
+      "aprobado": false,
+      "criterios_cumplidos": "3 de 5; criterio de demostración: 4 de 5",
+      "fecha": "2026-11-06T14:11:13.990860+00:00"
+    },
+    {
+      "id": "demo-8b3ca987f2d4",
+      "tema": "Backend con Node.js",
+      "tipo_actividad": "Laboratorio",
+      "puntaje": 3,
+      "tiempo_segundos": 300,
+      "conceptos_con_error": [
+        "JOIN"
+      ],
+      "aprobado": false,
+      "criterios_cumplidos": "3 de 5; criterio de demostración: 4 de 5",
+      "fecha": "2026-11-06T14:11:31.799653+00:00"
+    },
+    {
+      "id": "demo-45ce6e5b365a",
+      "tema": "Backend con Node.js",
+      "tipo_actividad": "Laboratorio",
+      "puntaje": 3,
+      "tiempo_segundos": 300,
+      "conceptos_con_error": [
+        "JOIN"
+      ],
+      "aprobado": false,
+      "criterios_cumplidos": "3 de 5; criterio de demostración: 4 de 5",
+      "fecha": "2026-11-06T14:11:33.966916+00:00"
+    }
+  ],
+  "perfil": {
+    "tiempo_interaccion_segundos": 120,
+    "tasa_errores": 50
+  },
+  "actualizado_en": "2026-11-06T14:11:33.966941+00:00"
+}
