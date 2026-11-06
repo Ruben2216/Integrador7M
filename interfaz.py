@@ -19,6 +19,12 @@ from calificador import (
 from recomendador import NIVELES, FORMATOS, NODO_A_TEMA, TEMA_A_NODO
 import simulacion
 from integracion_calificador import normalizar_resultado_calificador
+from calificador_node import (
+    calificar_laboratorio_node,
+    calificar_seguimiento_node,
+    obtener_ejercicios_laboratorio_node,
+    obtener_variante_seguimiento_node,
+)
 from progreso import ErrorProgreso, temas_acreditados
 from ui.resultados import renderizar_retroalimentacion
 
@@ -209,8 +215,8 @@ def _actualizar_recomendacion(motor: Any, estado: dict[str, Any]) -> None:
     )
 
 
-def _persistir_perfil(perfil: dict[str, Any], completados: list[str]) -> dict[str, Any]:
-    """Guarda preferencias y diagnósticos marcados, preservando el resto del avance."""
+def _persistir_perfil(perfil: dict[str, Any]) -> dict[str, Any]:
+    """Guarda preferencias sin convertir declaraciones manuales en acreditaciones."""
     store = simulacion.almacen
     guardado = store.cargar()
     if guardado["simulacion_activa"]:
@@ -227,12 +233,6 @@ def _persistir_perfil(perfil: dict[str, Any], completados: list[str]) -> dict[st
         "fallos": perfil["fallos"],
         "abandono": perfil["abandono"],
     })
-    # Los temas declarados en el diagnóstico quedan marcados con su origen.
-    for tema in completados:
-        guardado["temas_acreditados"].setdefault(tema, {
-            "origen": "diagnóstico",
-            "intento_id": f"diagnostico-{uuid4()}",
-        })
     return store.guardar(guardado)
 
 
@@ -254,8 +254,8 @@ def _resultado_markdown(resultado: dict[str, Any], retroalimentacion=None) -> st
 
     acreditado = "Acreditado" if resultado["acreditado"] else "Pendiente de acreditación"
     if resultado["tipo"] == "laboratorio":
-        correctas = resultado["ejercicios_correctos"]
-        total = resultado["total_ejercicios"]
+        correctas = resultado["puntaje_obtenido"] if "puntaje_obtenido" in resultado else resultado["ejercicios_correctos"]
+        total = resultado["puntaje_maximo"] if "puntaje_maximo" in resultado else resultado["total_ejercicios"]
         detalle = resultado["detalle"]
     else:
         correctas = resultado["correctas"]
@@ -268,6 +268,12 @@ def _resultado_markdown(resultado: dict[str, Any], retroalimentacion=None) -> st
     ]
     if resultado.get("variante"):
         lineas.append(f"**Variante:** {resultado['variante']}")
+    lineas.extend(["", "#### Criterios cumplidos"])
+    cumplidos = resultado.get("criterios_cumplidos", [])
+    incumplidos = resultado.get("criterios_incumplidos", [])
+    lineas.append(", ".join(cumplidos) if cumplidos else "Ninguno")
+    lineas.extend(["", "#### Criterios incumplidos"])
+    lineas.append(", ".join(incumplidos) if incumplidos else "Ninguno")
     lineas.extend(["", "#### Revisión por pregunta"])
     for item in detalle:
         estado = "Correcta" if item["correcto"] else "Revisar"
@@ -290,6 +296,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
     catalogo = _cargar_catalogo()
     banco_poo = _cargar_json(_RUTA_POO)
     ejercicios_lab = obtener_ejercicios_laboratorio()
+    ejercicios_lab_node = obtener_ejercicios_laboratorio_node()
     estado_inicial = _estado_inicial(motor)
     progreso_activo = estado_inicial["simulacion_activa"]
 
@@ -331,8 +338,9 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                     tiempo = gr.Slider(5, 300, value=estado_inicial["perfil"]["tiempo"], step=1, label="Tiempo de interacción (s)")
                     errores = gr.Slider(0, 100, value=estado_inicial["perfil"]["errores"], step=1, label="Tasa de errores (%)")
                 with gr.Row():
-                    completados = gr.CheckboxGroup(
-                        motor.temas, value=estado_inicial["completados"], label="Temas ya acreditados",
+                    gr.Markdown(
+                        "Las acreditaciones previas se restauran desde intentos calificados. "
+                        "Completa un laboratorio para acreditar un tema; no se acredita con casillas manuales."
                     )
                     fallos = gr.Slider(0, 6, value=estado_inicial["perfil"]["fallos"], step=1, label="Fallos consecutivos")
                     abandono = gr.Checkbox(value=estado_inicial["perfil"]["abandono"], label="Abandonó la actividad")
@@ -351,11 +359,17 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             with gr.Tab("Actividad", id="actividad"):
                 gr.Markdown(
                     "## Actividades\n"
-                    "Selecciona la práctica. El laboratorio y el seguimiento PostgreSQL "
-                    "se califican automáticamente; la práctica de POO se entrega para revisión."
+                    "Selecciona una práctica. Los laboratorios y seguimientos de PostgreSQL y Node.js "
+                    "se califican automáticamente; la práctica abierta de POO se entrega para revisión."
                 )
                 tipo_actividad = gr.Radio(
-                    ["POO · clases y objetos", "PostgreSQL · laboratorio", "PostgreSQL · seguimiento"],
+                    [
+                        "POO · clases y objetos",
+                        "PostgreSQL · laboratorio",
+                        "PostgreSQL · seguimiento",
+                        "Backend con Node.js · laboratorio diagnóstico",
+                        "Backend con Node.js · seguimiento",
+                    ],
                     label="Actividad",
                     value=None,
                 )
@@ -398,6 +412,41 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                         )
                     enviar_seg = gr.Button("Calificar seguimiento", variant="primary")
 
+                with gr.Group(visible=False) as grupo_laboratorio_node:
+                    gr.Markdown(
+                        "### Backend con Node.js · laboratorio diagnóstico (5 puntos)\n"
+                        "Responde con los datos de la operación. El laboratorio acredita con 4/5 puntos."
+                    )
+                    respuestas_lab_node = []
+                    ejemplos_node = (
+                        "Método y estado HTTP (ejemplo: GET, 200)",
+                        "Ruta y acceso al parámetro (ejemplo: /libros/:id, req.params.id)",
+                        "Validación y error antes de guardar (ejemplo: nombre obligatorio; 400; no crear)",
+                        "Crear y consultar (ejemplo: POST /productos 201; GET /productos 200)",
+                    )
+                    for ejercicio, placeholder in zip(ejercicios_lab_node, ejemplos_node):
+                        gr.Markdown(
+                            f"**{ejercicio['id']} · {ejercicio['concepto']} "
+                            f"({ejercicio['dificultad']})**\n\n{ejercicio['enunciado']}"
+                        )
+                        respuestas_lab_node.append(
+                            gr.Textbox(
+                                lines=2,
+                                label=f"Respuesta Node.js · {ejercicio['id']}",
+                                placeholder=placeholder,
+                            )
+                        )
+                    enviar_lab_node = gr.Button("Calificar laboratorio Node.js", variant="primary")
+
+                with gr.Group(visible=False) as grupo_seguimiento_node:
+                    gr.Markdown("### Backend con Node.js · seguimiento (5 preguntas)")
+                    preguntas_seg_node = [gr.Markdown() for _ in range(5)]
+                    respuestas_seg_node = [
+                        gr.Radio([], label=f"Respuesta Node.js {indice + 1}")
+                        for indice in range(5)
+                    ]
+                    enviar_seg_node = gr.Button("Calificar seguimiento Node.js", variant="primary")
+
             with gr.Tab("Resultados", id="resultados"):
                 resultados = gr.Markdown(
                     "Aún no hay resultados. Completa una actividad para ver aquí el resumen."
@@ -423,7 +472,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             return (
                 nuevo, gr.update(selected="inicio"), "Progreso local: 0 intentos, 0 temas acreditados.",
                 "Selecciona una meta y comienza.", gr.update(value=None), "",
-                gr.update(value=motor.temas[0]), gr.update(value=[]),
+                gr.update(value=motor.temas[0]),
                 gr.update(value="Iniciar simulación"),
                 gr.update(value="Principiante"), gr.update(value="Visual"),
                 gr.update(value=motor.temas[0]), gr.update(value="Backend con Node.js"),
@@ -434,13 +483,13 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
         reiniciar_simulacion.click(
             fn=reiniciar_desde_interfaz,
             outputs=[estado, navegacion, resumen_inicio, resumen_ruta, grafo,
-                     detalle_grafo, tema_grafo, completados, iniciar, nivel,
+                     detalle_grafo, tema_grafo, iniciar, nivel,
                      formato, tema, meta, tiempo, errores, fallos, abandono],
         )
 
         def generar_ruta(
             nivel_valor, formato_valor, tema_valor, tiempo_valor, errores_valor,
-            completados_valor, meta_valor, fallos_valor, abandono_valor, estado_actual,
+            meta_valor, fallos_valor, abandono_valor, estado_actual,
         ):
             nuevo = dict(estado_actual)
             nuevo["perfil"] = {
@@ -454,13 +503,13 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 "abandono": bool(abandono_valor),
             }
             try:
-                guardado = _persistir_perfil(
-                    nuevo["perfil"],
-                    sorted(set(completados_valor or []) | set(nuevo["completados"])),
-                )
+                guardado = _persistir_perfil(nuevo["perfil"])
             except (ErrorProgreso, ValueError) as exc:
-                return (estado_actual, gr.update(), gr.update(), gr.update(), gr.update(),
-                        f"No se guardó el perfil ni se actualizó el progreso: {exc}")
+                return (
+                    estado_actual, gr.update(), gr.update(), gr.update(), gr.update(),
+                    f"No se guardó el perfil ni se actualizó el progreso: {exc}",
+                    gr.update(), gr.update(),
+                )
             nuevo["completados"] = temas_acreditados(guardado)
             nuevo["intentos"] = guardado["intentos"]
             nuevo["simulacion_activa"] = True
@@ -469,17 +518,19 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             return (
                 nuevo, md, figura, detalle, tema_update,
                 f"Ruta actualizada. Siguiente tema: **{nuevo['recomendacion'].get('siguiente_tema') or 'Meta completada'}**.",
+                f"Progreso local recuperado: {len(nuevo['intentos'])} intento(s), "
+                f"{len(nuevo['completados'])} tema(s) acreditado(s).",
+                gr.update(value="Continuar aprendizaje"),
             )
 
         diagnosticar.click(
             fn=generar_ruta,
             inputs=[
-                nivel, formato, tema, tiempo, errores, completados, meta, fallos,
-                abandono, estado,
+                nivel, formato, tema, tiempo, errores, meta, fallos, abandono, estado,
             ],
             outputs=[
                 estado, resumen_ruta, grafo, detalle_grafo, tema_grafo,
-                estado_diagnostico,
+                estado_diagnostico, resumen_inicio, iniciar,
             ],
         )
         actualizar_ruta.click(
@@ -505,13 +556,27 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             nuevo["tipo_actividad"] = seleccion
             nuevo["inicio_actividad"] = time.monotonic() if seleccion else None
             nuevo["variante_activa"] = None
+            node_id = TEMA_A_NODO["Backend con Node.js"]
+            node_prerequisitos = [
+                NODO_A_TEMA[nodo]
+                for nodo in motor.grafo[node_id]["prerrequisitos"]
+                if NODO_A_TEMA[nodo] not in nuevo["completados"]
+            ]
+            node_followup_allowed = (
+                seleccion == "Backend con Node.js · seguimiento"
+                and not node_prerequisitos
+            )
             visibilidad = [
                 gr.update(visible=seleccion == "POO · clases y objetos"),
                 gr.update(visible=seleccion == "PostgreSQL · laboratorio"),
                 gr.update(visible=seleccion == "PostgreSQL · seguimiento"),
+                gr.update(visible=seleccion == "Backend con Node.js · laboratorio diagnóstico"),
+                gr.update(visible=node_followup_allowed),
             ]
             prompts = [gr.update(value="") for _ in range(5)]
             radios = [gr.update(choices=[], value=None) for _ in range(5)]
+            prompts_node = [gr.update(value="") for _ in range(5)]
+            radios_node = [gr.update(choices=[], value=None) for _ in range(5)]
             if seleccion == "POO · clases y objetos":
                 instruccion = "Responde los cuatro ejercicios. La entrega se acompaña de una lista de revisión, no de una nota automática."
             elif seleccion == "PostgreSQL · laboratorio":
@@ -533,13 +598,59 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                             choices=pregunta["opciones"], value=None,
                         )
                     instruccion = f"Variante asignada: **{variante}**. Se selecciona una variante no utilizada anteriormente."
+            elif seleccion == "Backend con Node.js · laboratorio diagnóstico":
+                instruccion = (
+                    "Resuelve los cuatro ejercicios. La rúbrica suma cinco puntos y acredita "
+                    "con al menos 4/5. Este laboratorio es la vía evaluada para diagnosticar Node.js."
+                )
+            elif seleccion == "Backend con Node.js · seguimiento":
+                if node_prerequisitos:
+                    faltantes = ", ".join(node_prerequisitos)
+                    instruccion = f"Actividad bloqueada. Primero acredita: **{faltantes}**."
+                else:
+                    try:
+                        variante, preguntas = obtener_variante_seguimiento_node(
+                            nuevo["variantes_usadas"]
+                        )
+                    except ValueError as exc:
+                        instruccion = f"**No se puede iniciar el seguimiento:** {exc}"
+                    else:
+                        nuevo["variante_activa"] = variante
+                        for indice, pregunta in enumerate(preguntas):
+                            prompts_node[indice] = gr.update(
+                                value=f"**{pregunta['id']} · {pregunta['concepto']}**\n\n{pregunta['pregunta']}"
+                            )
+                            # Agrega distractores fijos para que la respuesta no sea la única opción.
+                            distractores = {
+                                "GET": ["POST", "PUT", "DELETE"],
+                                "200": ["201", "400", "404"],
+                                "201": ["200", "400", "404"],
+                                "req.params.id": ["req.body.id", "req.query.id", "req.headers.id"],
+                                "req.params": ["req.body", "req.query", "req.headers"],
+                                "Sí": ["No"],
+                                "No": ["Sí"],
+                                "POST": ["GET", "PUT", "DELETE"],
+                            }
+                            radios_node[indice] = gr.update(
+                                choices=[pregunta["respuesta"]] + distractores.get(pregunta["respuesta"], []),
+                                value=None,
+                            )
+                        instruccion = (
+                            f"Variante asignada: **{variante}**. Acredita con 4 de 5 respuestas correctas."
+                        )
             else:
                 instruccion = "Selecciona una actividad para mostrar sus ejercicios."
-            return (*visibilidad, *prompts, *radios, instruccion, nuevo)
+            return (
+                *visibilidad, *prompts, *radios, *prompts_node, *radios_node,
+                instruccion, nuevo,
+            )
 
         seleccion_outputs = [
             grupo_poo, grupo_laboratorio, grupo_seguimiento,
-            *preguntas_seg, *respuestas_seg, instrucciones, estado,
+            grupo_laboratorio_node, grupo_seguimiento_node,
+            *preguntas_seg, *respuestas_seg,
+            *preguntas_seg_node, *respuestas_seg_node,
+            instrucciones, estado,
         ]
         tipo_actividad.change(
             fn=seleccionar_actividad,
@@ -571,7 +682,6 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 return (
                     estado_actual, f"## No se guardó el resultado\n\n{exc}",
                     md_ruta, figura, detalle, tema_update,
-                    gr.update(value=estado_actual["completados"]),
                     gr.update(selected="resultados"),
                 )
 
@@ -588,7 +698,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             md_ruta, figura, detalle, tema_update = _vista_ruta(motor, catalogo, nuevo)
             return (
                 nuevo, _resultado_markdown(resultado, resultado.get("retroalimentacion")), md_ruta, figura, detalle,
-                tema_update, gr.update(value=nuevo["completados"]),
+                tema_update,
                 gr.update(selected="resultados"),
             )
 
@@ -645,9 +755,54 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             nuevo["variantes_usadas"] = list(nuevo["variantes_usadas"]) + [variante]
             return registrar_resultado(resultado, nuevo)
 
+        def calificar_lab_node(*valores):
+            estado_actual = valores[-1]
+            respuestas = {
+                ejercicio["id"]: respuesta or ""
+                for ejercicio, respuesta in zip(ejercicios_lab_node, valores[:-1])
+            }
+            inicio = estado_actual.get("inicio_actividad") or time.monotonic()
+            resultado = calificar_laboratorio_node(
+                respuestas, tiempo_segundos=max(0.0, time.monotonic() - inicio),
+            )
+            return registrar_resultado(resultado, estado_actual)
+
+        def calificar_seg_node(*valores):
+            estado_actual = valores[-1]
+            variante = estado_actual.get("variante_activa")
+            if not variante:
+                raise ValueError("Selecciona una variante de seguimiento Node.js antes de calificar.")
+            variante_actual, preguntas = obtener_variante_seguimiento_node(
+                estado_actual["variantes_usadas"]
+            )
+            if variante_actual != variante:
+                raise ValueError("La variante activa Node.js no coincide con la siguiente disponible.")
+            faltantes = [
+                NODO_A_TEMA[requisito]
+                for requisito in motor.grafo[TEMA_A_NODO["Backend con Node.js"]]["prerrequisitos"]
+                if NODO_A_TEMA[requisito] not in estado_actual["completados"]
+            ]
+            if faltantes:
+                raise ValueError(
+                    "Backend con Node.js sigue bloqueado; falta acreditar: "
+                    + ", ".join(faltantes)
+                )
+            respuestas = {
+                pregunta["id"]: respuesta or ""
+                for pregunta, respuesta in zip(preguntas, valores[:-1])
+            }
+            resultado = calificar_seguimiento_node(
+                respuestas,
+                tiempo_segundos=max(
+                    0.0,
+                    time.monotonic() - (estado_actual.get("inicio_actividad") or time.monotonic()),
+                ),
+                variante=variante,
+            )
+            return registrar_resultado(resultado, estado_actual)
+
         resultado_outputs = [
-            estado, resultados, resumen_ruta, grafo, detalle_grafo, tema_grafo,
-            completados, navegacion,
+            estado, resultados, resumen_ruta, grafo, detalle_grafo, tema_grafo, navegacion,
         ]
         enviar_poo.click(
             fn=entregar_poo,
@@ -662,6 +817,16 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
         enviar_seg.click(
             fn=calificar_seg,
             inputs=[*respuestas_seg, estado],
+            outputs=resultado_outputs,
+        )
+        enviar_lab_node.click(
+            fn=calificar_lab_node,
+            inputs=[*respuestas_lab_node, estado],
+            outputs=resultado_outputs,
+        )
+        enviar_seg_node.click(
+            fn=calificar_seg_node,
+            inputs=[*respuestas_seg_node, estado],
             outputs=resultado_outputs,
         )
 

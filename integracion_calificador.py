@@ -38,14 +38,21 @@ def normalizar_resultado_calificador(resultado):
     tipo = resultado["tipo"]
     if tipo == "laboratorio":
         tipo_actividad = "Diagnóstico (laboratorio)"
+    elif tipo == "seguimiento":
+        tipo_actividad = "Actividad de seguimiento"
+    else:
+        raise ValueError(f"Tipo de actividad del calificador desconocido: {tipo}")
+    if "puntaje_obtenido" in resultado and "puntaje_maximo" in resultado:
+        # Algunos laboratorios (como Node.js) ponderan criterios: no todos los
+        # ejercicios valen lo mismo. Conserva esa escala sin afectar PostgreSQL.
+        aciertos = resultado["puntaje_obtenido"]
+        total = resultado["puntaje_maximo"]
+    elif tipo == "laboratorio":
         aciertos = resultado.get("ejercicios_correctos")
         total = resultado.get("total_ejercicios")
     elif tipo == "seguimiento":
-        tipo_actividad = "Actividad de seguimiento"
         aciertos = resultado.get("correctas")
         total = resultado.get("total_preguntas")
-    else:
-        raise ValueError(f"Tipo de actividad del calificador desconocido: {tipo}")
     if not isinstance(aciertos, int) or not isinstance(total, int) or total <= 0:
         raise ValueError("El calificador debe informar conteo de aciertos y total")
 
