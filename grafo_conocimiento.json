@@ -1,0 +1,48 @@
+{
+    "Logica_de_Programacion": {
+        "prerrequisitos": [],
+        "recursos": [
+            "Recurso_Video_Logica",
+            "Recurso_Lectura_Logica",
+            "Recurso_Practica_Logica"
+        ]
+    },
+    "Programacion_Orientada_a_Objetos": {
+        "prerrequisitos": [
+            "Logica_de_Programacion"
+        ],
+        "recursos": [
+            "Recurso_Video_POO",
+            "Recurso_Lectura_POO",
+            "Recurso_Practica_POO"
+        ]
+    },
+    "Bases_de_Datos_PostgreSQL": {
+        "prerrequisitos": [
+            "Logica_de_Programacion"
+        ],
+        "recursos": [
+            "Recurso_Video_DB",
+            "Recurso_Practica_DB"
+        ]
+    },
+    "Backend_con_Nodejs": {
+        "prerrequisitos": [
+            "Programacion_Orientada_a_Objetos",
+            "Bases_de_Datos_PostgreSQL"
+        ],
+        "recursos": [
+            "Recurso_Video_Node",
+            "Recurso_Practica_Node"
+        ]
+    },
+    "Patron_MVC_en_PHP": {
+        "prerrequisitos": [
+            "Programacion_Orientada_a_Objetos"
+        ],
+        "recursos": [
+            "Recurso_Video_PHP",
+            "Recurso_Lectura_PHP"
+        ]
+    }
+}

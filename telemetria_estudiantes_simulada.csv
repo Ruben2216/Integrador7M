@@ -1,0 +1,101 @@
+ID_Estudiante,Nivel_Previo,Formato_Preferido,Tema_Actual,Tiempo_Interaccion_Segundos,Tasa_Errores,Recurso_Recomendado_ID
+1,Avanzado,Práctico,Backend con Node.js,224.0,32.7,Avanzado_Práctico_BACK
+2,Intermedio,Práctico,Patrón MVC en PHP,236.0,44.41,Avanzado_Texto_PATR
+3,Avanzado,Visual,Bases de Datos PostgreSQL,168.0,33.7,Avanzado_Visual_BASE
+4,Avanzado,Práctico,Lógica de Programación,42.0,43.81,Avanzado_Práctico_LÓGI
+5,Principiante,Práctico,Lógica de Programación,123.0,91.79,Refuerzo_Práctico_LÓGI
+6,Avanzado,Práctico,Lógica de Programación,299.0,0.5,Avanzado_Práctico_LÓGI
+7,Avanzado,Texto,Lógica de Programación,22.0,34.08,Avanzado_Texto_LÓGI
+8,Avanzado,Visual,Backend con Node.js,264.0,44.41,Avanzado_Visual_BACK
+9,Principiante,Visual,Lógica de Programación,208.0,62.4,Refuerzo_Práctico_LÓGI
+10,Intermedio,Práctico,Bases de Datos PostgreSQL,92.0,37.7,Avanzado_Práctico_BASE
+11,Intermedio,Texto,Backend con Node.js,235.0,3.08,Avanzado_Texto_BACK
+12,Avanzado,Visual,Bases de Datos PostgreSQL,252.0,48.2,Avanzado_Visual_BASE
+13,Intermedio,Visual,Lógica de Programación,22.0,90.18,Refuerzo_Visual_LÓGI
+14,Avanzado,Texto,Backend con Node.js,40.0,1.65,Avanzado_Texto_BACK
+15,Intermedio,Visual,Backend con Node.js,203.0,68.6,Refuerzo_Visual_BACK
+16,Principiante,Práctico,Backend con Node.js,299.0,46.79,Refuerzo_Práctico_BACK
+17,Intermedio,Práctico,Lógica de Programación,16.0,45.47,Avanzado_Práctico_LÓGI
+18,Principiante,Práctico,Lógica de Programación,,28.68,Avanzado_Práctico_LÓGI
+19,Avanzado,Texto,Patrón MVC en PHP,49.0,31.64,Avanzado_Texto_PATR
+20,Intermedio,Práctico,Programación Orientada a Objetos,198.0,79.5,Refuerzo_Práctico_PROG
+21,Avanzado,Práctico,Programación Orientada a Objetos,190.0,54.57,Avanzado_Práctico_PROG
+22,Intermedio,Práctico,Bases de Datos PostgreSQL,36.0,90.31,Refuerzo_Práctico_BASE
+23,Avanzado,Visual,Backend con Node.js,207.0,69.44,Refuerzo_Texto_BACK
+24,Avanzado,Texto,Patrón MVC en PHP,270.0,50.98,Avanzado_Texto_PATR
+25,Avanzado,Visual,Programación Orientada a Objetos,260.0,83.6,Avanzado_Visual_PROG
+26,Principiante,Texto,Patrón MVC en PHP,18.0,65.97,Refuerzo_Texto_PATR
+27,Intermedio,Visual,Lógica de Programación,81.0,67.7,Refuerzo_Visual_LÓGI
+28,Principiante,Visual,Bases de Datos PostgreSQL,79.0,47.59,Avanzado_Visual_BASE
+29,Principiante,Visual,Bases de Datos PostgreSQL,141.0,56.66,Refuerzo_Visual_BASE
+30,Intermedio,Práctico,Lógica de Programación,51.0,29.56,Avanzado_Texto_LÓGI
+31,Avanzado,Visual,Lógica de Programación,257.0,64.74,Avanzado_Visual_LÓGI
+32,Avanzado,Práctico,Programación Orientada a Objetos,235.0,10.54,Avanzado_Práctico_PROG
+33,Principiante,Práctico,Patrón MVC en PHP,244.0,74.56,Refuerzo_Práctico_PATR
+34,Intermedio,Texto,Bases de Datos PostgreSQL,67.0,42.23,Avanzado_Práctico_BASE
+35,Intermedio,Práctico,Patrón MVC en PHP,14.0,76.28,Refuerzo_Práctico_PATR
+36,Principiante,Visual,Backend con Node.js,274.0,73.77,Refuerzo_Visual_BACK
+37,Principiante,Práctico,Bases de Datos PostgreSQL,93.0,99.5,Refuerzo_Práctico_BASE
+38,Intermedio,Texto,Backend con Node.js,,65.27,Refuerzo_Texto_BACK
+39,Principiante,Práctico,Lógica de Programación,273.0,15.7,Avanzado_Práctico_LÓGI
+40,Intermedio,Visual,Lógica de Programación,20.0,45.33,Avanzado_Visual_LÓGI
+41,Intermedio,Texto,Backend con Node.js,,17.7,Avanzado_Texto_BACK
+42,Avanzado,Texto,Backend con Node.js,11.0,27.04,Avanzado_Texto_BACK
+43,Avanzado,Práctico,Lógica de Programación,55.0,77.78,Refuerzo_Práctico_LÓGI
+44,Principiante,Texto,Bases de Datos PostgreSQL,24.0,70.94,Refuerzo_Texto_BASE
+45,Avanzado,Texto,Bases de Datos PostgreSQL,,22.53,Avanzado_Texto_BASE
+46,Avanzado,Visual,Backend con Node.js,185.0,14.66,Avanzado_Visual_BACK
+47,Intermedio,Texto,Bases de Datos PostgreSQL,294.0,47.82,Avanzado_Práctico_BASE
+48,Principiante,Texto,Programación Orientada a Objetos,242.0,24.59,Avanzado_Texto_PROG
+49,Intermedio,Texto,Programación Orientada a Objetos,289.0,30.22,Avanzado_Texto_PROG
+50,Principiante,Visual,Programación Orientada a Objetos,79.0,62.8,Refuerzo_Visual_PROG
+51,Principiante,Práctico,Bases de Datos PostgreSQL,93.0,83.88,Refuerzo_Práctico_BASE
+52,Principiante,Práctico,Backend con Node.js,256.0,70.22,Refuerzo_Práctico_BACK
+53,Avanzado,Visual,Bases de Datos PostgreSQL,81.0,0.5,Avanzado_Visual_BASE
+54,Intermedio,Texto,Lógica de Programación,26.0,54.61,Refuerzo_Texto_LÓGI
+55,Avanzado,Visual,Lógica de Programación,204.0,41.8,Avanzado_Visual_LÓGI
+56,Avanzado,Práctico,Backend con Node.js,242.0,50.35,Avanzado_Práctico_BACK
+57,Intermedio,Visual,Backend con Node.js,290.0,87.41,Refuerzo_Práctico_BACK
+58,Intermedio,Práctico,Lógica de Programación,279.0,0.5,Avanzado_Texto_LÓGI
+59,Principiante,Práctico,Lógica de Programación,44.0,40.22,Avanzado_Práctico_LÓGI
+60,Principiante,Práctico,Bases de Datos PostgreSQL,233.0,69.77,Refuerzo_Práctico_BASE
+61,Intermedio,Visual,Lógica de Programación,255.0,7.46,Avanzado_Visual_LÓGI
+62,Intermedio,Práctico,Backend con Node.js,212.0,83.9,Refuerzo_Práctico_BACK
+63,Intermedio,Visual,Programación Orientada a Objetos,247.0,56.21,Refuerzo_Visual_PROG
+64,Avanzado,Visual,Lógica de Programación,253.0,61.16,Avanzado_Visual_LÓGI
+65,Intermedio,Texto,Patrón MVC en PHP,139.0,32.73,Avanzado_Práctico_PATR
+66,Intermedio,Texto,Lógica de Programación,21.0,67.34,Refuerzo_Texto_LÓGI
+67,Intermedio,Práctico,Programación Orientada a Objetos,142.0,73.71,Avanzado_Práctico_PROG
+68,Principiante,Práctico,Lógica de Programación,68.0,60.82,Refuerzo_Práctico_LÓGI
+69,Principiante,Visual,Lógica de Programación,,60.86,Refuerzo_Visual_LÓGI
+70,Intermedio,Práctico,Lógica de Programación,46.0,53.76,Refuerzo_Visual_LÓGI
+71,Principiante,Visual,Lógica de Programación,212.0,33.42,Avanzado_Texto_LÓGI
+72,Intermedio,Texto,Lógica de Programación,156.0,43.31,Avanzado_Práctico_LÓGI
+73,Avanzado,Visual,Lógica de Programación,166.0,36.19,Avanzado_Visual_LÓGI
+74,Principiante,Práctico,Bases de Datos PostgreSQL,226.0,64.58,Refuerzo_Práctico_BASE
+75,Principiante,Visual,Backend con Node.js,168.0,80.0,Refuerzo_Visual_BACK
+76,Principiante,Visual,Programación Orientada a Objetos,192.0,28.54,Avanzado_Visual_PROG
+77,Principiante,Texto,Programación Orientada a Objetos,34.0,51.87,Refuerzo_Texto_PROG
+78,Intermedio,Práctico,Bases de Datos PostgreSQL,256.0,84.04,Refuerzo_Texto_BASE
+79,Intermedio,Práctico,Backend con Node.js,140.0,28.41,Avanzado_Práctico_BACK
+80,Avanzado,Práctico,Backend con Node.js,55.0,19.44,Avanzado_Práctico_BACK
+81,Intermedio,Práctico,Lógica de Programación,245.0,52.06,Avanzado_Práctico_LÓGI
+82,Intermedio,Práctico,Lógica de Programación,223.0,68.11,Refuerzo_Texto_LÓGI
+83,Avanzado,Texto,Lógica de Programación,25.0,40.29,Avanzado_Texto_LÓGI
+84,Principiante,Visual,Lógica de Programación,65.0,88.22,Refuerzo_Práctico_LÓGI
+85,Principiante,Práctico,Bases de Datos PostgreSQL,14.0,76.42,Refuerzo_Práctico_BASE
+86,Principiante,Práctico,Programación Orientada a Objetos,88.0,76.05,Refuerzo_Práctico_PROG
+87,Avanzado,Texto,Lógica de Programación,38.0,53.85,Refuerzo_Texto_LÓGI
+88,Intermedio,Visual,Programación Orientada a Objetos,215.0,99.5,Refuerzo_Visual_PROG
+89,Principiante,Práctico,Bases de Datos PostgreSQL,161.0,49.87,Refuerzo_Práctico_BASE
+90,Intermedio,Visual,Lógica de Programación,294.0,0.5,Avanzado_Visual_LÓGI
+91,Principiante,Práctico,Backend con Node.js,227.0,95.11,Refuerzo_Práctico_BACK
+92,Avanzado,Visual,Lógica de Programación,187.0,28.56,Avanzado_Visual_LÓGI
+93,Intermedio,Visual,Patrón MVC en PHP,157.0,49.7,Avanzado_Visual_PATR
+94,Intermedio,Práctico,Lógica de Programación,25.0,79.74,Refuerzo_Práctico_LÓGI
+95,Principiante,Visual,Backend con Node.js,30.0,14.94,Avanzado_Visual_BACK
+96,Intermedio,Visual,Patrón MVC en PHP,188.0,15.71,Avanzado_Visual_PATR
+97,Intermedio,Práctico,Patrón MVC en PHP,11.0,6.97,Avanzado_Práctico_PATR
+98,Principiante,Práctico,Backend con Node.js,22.0,35.15,Avanzado_Texto_BACK
+99,Principiante,Visual,Backend con Node.js,73.0,65.99,Refuerzo_Visual_BACK
+100,Avanzado,Visual,Bases de Datos PostgreSQL,266.0,53.1,Avanzado_Visual_BASE
