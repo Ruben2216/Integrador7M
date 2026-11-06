@@ -1,0 +1,331 @@
+{
+    "laboratorio": [
+        {
+            "id": "PSQL-LAB01",
+            "tema": "Bases_de_Datos_PostgreSQL",
+            "tipo": "laboratorio",
+            "concepto": "WHERE",
+            "dificultad": "Principiante",
+            "enunciado": "Escribe una consulta SQL que devuelva el nombre y el correo de todos los clientes cuya ciudad sea 'Guadalajara'.",
+            "esquema_sql": "CREATE TABLE clientes (id INTEGER PRIMARY KEY, nombre TEXT, correo TEXT, ciudad TEXT); INSERT INTO clientes VALUES (1,'Ana López','ana@mail.com','Guadalajara'),(2,'Luis Pérez','luis@mail.com','Monterrey'),(3,'María García','maria@mail.com','Guadalajara'),(4,'Carlos Ruiz','carlos@mail.com','CDMX');",
+            "respuesta_esperada_sql": "SELECT nombre, correo FROM clientes WHERE ciudad = 'Guadalajara';",
+            "criterios": [
+                {
+                    "id": "C01-WHERE",
+                    "descripcion": "Filtra solo los clientes de Guadalajara",
+                    "verificacion": "resultado_coincide"
+                },
+                {
+                    "id": "C01-COLS",
+                    "descripcion": "Devuelve exactamente las columnas nombre y correo",
+                    "verificacion": "columnas_correctas"
+                }
+            ]
+        },
+        {
+            "id": "PSQL-LAB02",
+            "tema": "Bases_de_Datos_PostgreSQL",
+            "tipo": "laboratorio",
+            "concepto": "JOIN",
+            "dificultad": "Intermedio",
+            "enunciado": "Escribe una consulta SQL que devuelva el nombre de cada cliente y el total de su pedido. Incluye también a los clientes que NO tienen pedidos (deben aparecer con total NULL).",
+            "esquema_sql": "CREATE TABLE clientes (id INTEGER PRIMARY KEY, nombre TEXT, correo TEXT, ciudad TEXT); INSERT INTO clientes VALUES (1,'Ana López','ana@mail.com','Guadalajara'),(2,'Luis Pérez','luis@mail.com','Monterrey'),(3,'María García','maria@mail.com','Guadalajara'),(4,'Carlos Ruiz','carlos@mail.com','CDMX'); CREATE TABLE pedidos (id INTEGER PRIMARY KEY, cliente_id INTEGER, total REAL); INSERT INTO pedidos VALUES (101,1,250.00),(102,1,180.00),(103,3,320.00);",
+            "respuesta_esperada_sql": "SELECT clientes.nombre, pedidos.total FROM clientes LEFT JOIN pedidos ON clientes.id = pedidos.cliente_id;",
+            "criterios": [
+                {
+                    "id": "C02-JOIN",
+                    "descripcion": "Usa LEFT JOIN para conservar clientes sin pedidos",
+                    "verificacion": "resultado_coincide"
+                },
+                {
+                    "id": "C02-NULLS",
+                    "descripcion": "Los clientes sin pedidos aparecen con total NULL",
+                    "verificacion": "contiene_nulos"
+                }
+            ]
+        },
+        {
+            "id": "PSQL-LAB03",
+            "tema": "Bases_de_Datos_PostgreSQL",
+            "tipo": "laboratorio",
+            "concepto": "GROUP_BY",
+            "dificultad": "Intermedio",
+            "enunciado": "Escribe una consulta SQL que devuelva la ciudad y la cantidad de clientes en cada ciudad. Ordena de mayor a menor cantidad.",
+            "esquema_sql": "CREATE TABLE clientes (id INTEGER PRIMARY KEY, nombre TEXT, correo TEXT, ciudad TEXT); INSERT INTO clientes VALUES (1,'Ana López','ana@mail.com','Guadalajara'),(2,'Luis Pérez','luis@mail.com','Monterrey'),(3,'María García','maria@mail.com','Guadalajara'),(4,'Carlos Ruiz','carlos@mail.com','CDMX'),(5,'Laura Díaz','laura@mail.com','Guadalajara');",
+            "respuesta_esperada_sql": "SELECT ciudad, COUNT(*) AS cantidad FROM clientes GROUP BY ciudad ORDER BY cantidad DESC;",
+            "criterios": [
+                {
+                    "id": "C03-GROUP",
+                    "descripcion": "Agrupa correctamente por ciudad",
+                    "verificacion": "resultado_coincide"
+                },
+                {
+                    "id": "C03-COUNT",
+                    "descripcion": "Cuenta el número de clientes por ciudad",
+                    "verificacion": "columnas_correctas"
+                }
+            ]
+        },
+        {
+            "id": "PSQL-LAB04",
+            "tema": "Bases_de_Datos_PostgreSQL",
+            "tipo": "laboratorio",
+            "concepto": "INTEGRADORA",
+            "dificultad": "Avanzado",
+            "enunciado": "Escribe una consulta SQL que devuelva el nombre de cada cliente, la cantidad de pedidos que tiene y el monto total gastado. Incluye a los clientes sin pedidos (cantidad 0 y monto 0). Ordena por monto total de mayor a menor.",
+            "esquema_sql": "CREATE TABLE clientes (id INTEGER PRIMARY KEY, nombre TEXT, correo TEXT, ciudad TEXT); INSERT INTO clientes VALUES (1,'Ana López','ana@mail.com','Guadalajara'),(2,'Luis Pérez','luis@mail.com','Monterrey'),(3,'María García','maria@mail.com','Guadalajara'),(4,'Carlos Ruiz','carlos@mail.com','CDMX'); CREATE TABLE pedidos (id INTEGER PRIMARY KEY, cliente_id INTEGER, total REAL); INSERT INTO pedidos VALUES (101,1,250.00),(102,1,180.00),(103,3,320.00);",
+            "respuesta_esperada_sql": "SELECT clientes.nombre, COUNT(pedidos.id) AS cantidad_pedidos, COALESCE(SUM(pedidos.total), 0) AS monto_total FROM clientes LEFT JOIN pedidos ON clientes.id = pedidos.cliente_id GROUP BY clientes.nombre ORDER BY monto_total DESC;",
+            "criterios": [
+                {
+                    "id": "C04-LEFT",
+                    "descripcion": "Usa LEFT JOIN para incluir clientes sin pedidos",
+                    "verificacion": "resultado_coincide"
+                },
+                {
+                    "id": "C04-AGG",
+                    "descripcion": "Calcula correctamente COUNT y SUM por cliente",
+                    "verificacion": "columnas_correctas"
+                },
+                {
+                    "id": "C04-ZERO",
+                    "descripcion": "Los clientes sin pedidos muestran 0 en cantidad y monto",
+                    "verificacion": "sin_nulos_en_agregados"
+                }
+            ]
+        }
+    ],
+    "seguimiento": {
+        "variante_1": [
+            {
+                "id": "PSQL-SEG-V1-01",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "WHERE",
+                "dificultad": "Principiante",
+                "enunciado": "¿Cuál consulta devuelve los productos con precio mayor a 100?",
+                "opciones": [
+                    "SELECT * FROM productos WHERE precio > 100;",
+                    "SELECT * FROM productos HAVING precio > 100;",
+                    "SELECT * FROM productos GROUP BY precio > 100;",
+                    "SELECT * FROM productos ORDER BY precio > 100;"
+                ],
+                "respuesta_correcta": "SELECT * FROM productos WHERE precio > 100;"
+            },
+            {
+                "id": "PSQL-SEG-V1-02",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "JOIN",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Qué tipo de JOIN conserva TODAS las filas de la tabla izquierda, incluso si no tienen coincidencia en la tabla derecha?",
+                "opciones": [
+                    "INNER JOIN",
+                    "LEFT JOIN",
+                    "CROSS JOIN",
+                    "SELF JOIN"
+                ],
+                "respuesta_correcta": "LEFT JOIN"
+            },
+            {
+                "id": "PSQL-SEG-V1-03",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "GROUP_BY",
+                "dificultad": "Intermedio",
+                "enunciado": "Si quieres contar cuántos empleados hay en cada departamento, ¿cuál cláusula necesitas junto con COUNT(*)?",
+                "opciones": [
+                    "ORDER BY departamento",
+                    "WHERE departamento",
+                    "GROUP BY departamento",
+                    "HAVING departamento"
+                ],
+                "respuesta_correcta": "GROUP BY departamento"
+            },
+            {
+                "id": "PSQL-SEG-V1-04",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "WHERE",
+                "dificultad": "Principiante",
+                "enunciado": "¿Cuál consulta selecciona los clientes cuyo nombre empieza con 'A'?",
+                "opciones": [
+                    "SELECT * FROM clientes WHERE nombre = 'A%';",
+                    "SELECT * FROM clientes WHERE nombre LIKE 'A%';",
+                    "SELECT * FROM clientes HAVING nombre LIKE 'A%';",
+                    "SELECT * FROM clientes ORDER BY nombre = 'A';"
+                ],
+                "respuesta_correcta": "SELECT * FROM clientes WHERE nombre LIKE 'A%';"
+            },
+            {
+                "id": "PSQL-SEG-V1-05",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "JOIN",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Qué sucede con las filas que no tienen coincidencia al usar INNER JOIN?",
+                "opciones": [
+                    "Se muestran con valores NULL en las columnas faltantes",
+                    "Se excluyen del resultado",
+                    "Se duplican en el resultado",
+                    "Generan un error de ejecución"
+                ],
+                "respuesta_correcta": "Se excluyen del resultado"
+            }
+        ],
+        "variante_2": [
+            {
+                "id": "PSQL-SEG-V2-01",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "WHERE",
+                "dificultad": "Principiante",
+                "enunciado": "¿Cuál consulta devuelve los empleados del departamento 'Ventas' con salario mayor a 15000?",
+                "opciones": [
+                    "SELECT * FROM empleados WHERE departamento = 'Ventas' AND salario > 15000;",
+                    "SELECT * FROM empleados WHERE departamento = 'Ventas' OR salario > 15000;",
+                    "SELECT * FROM empleados HAVING departamento = 'Ventas' AND salario > 15000;",
+                    "SELECT * FROM empleados ORDER BY departamento = 'Ventas';"
+                ],
+                "respuesta_correcta": "SELECT * FROM empleados WHERE departamento = 'Ventas' AND salario > 15000;"
+            },
+            {
+                "id": "PSQL-SEG-V2-02",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "JOIN",
+                "dificultad": "Intermedio",
+                "enunciado": "Tienes una tabla 'alumnos' y una tabla 'inscripciones'. ¿Cuál consulta muestra todos los alumnos, incluyendo los que no tienen inscripciones?",
+                "opciones": [
+                    "SELECT * FROM alumnos INNER JOIN inscripciones ON alumnos.id = inscripciones.alumno_id;",
+                    "SELECT * FROM alumnos LEFT JOIN inscripciones ON alumnos.id = inscripciones.alumno_id;",
+                    "SELECT * FROM inscripciones LEFT JOIN alumnos ON alumnos.id = inscripciones.alumno_id;",
+                    "SELECT * FROM alumnos, inscripciones;"
+                ],
+                "respuesta_correcta": "SELECT * FROM alumnos LEFT JOIN inscripciones ON alumnos.id = inscripciones.alumno_id;"
+            },
+            {
+                "id": "PSQL-SEG-V2-03",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "GROUP_BY",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Cuál consulta devuelve el promedio de calificación por materia?",
+                "opciones": [
+                    "SELECT materia, AVG(calificacion) FROM notas GROUP BY materia;",
+                    "SELECT materia, AVG(calificacion) FROM notas ORDER BY materia;",
+                    "SELECT materia, AVG(calificacion) FROM notas WHERE materia;",
+                    "SELECT materia, SUM(calificacion) FROM notas GROUP BY calificacion;"
+                ],
+                "respuesta_correcta": "SELECT materia, AVG(calificacion) FROM notas GROUP BY materia;"
+            },
+            {
+                "id": "PSQL-SEG-V2-04",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "WHERE",
+                "dificultad": "Principiante",
+                "enunciado": "¿Cuál es la diferencia entre WHERE y HAVING?",
+                "opciones": [
+                    "WHERE filtra filas antes de agrupar; HAVING filtra grupos después de agrupar",
+                    "WHERE filtra grupos; HAVING filtra filas",
+                    "No hay diferencia, son intercambiables",
+                    "WHERE solo funciona con texto; HAVING solo con números"
+                ],
+                "respuesta_correcta": "WHERE filtra filas antes de agrupar; HAVING filtra grupos después de agrupar"
+            },
+            {
+                "id": "PSQL-SEG-V2-05",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "JOIN",
+                "dificultad": "Intermedio",
+                "enunciado": "En un LEFT JOIN entre 'ventas' (izquierda) y 'productos' (derecha), ¿qué valor tendrán las columnas de 'productos' para una venta cuyo producto_id no existe en la tabla productos?",
+                "opciones": [
+                    "0 en todas las columnas",
+                    "NULL en todas las columnas de productos",
+                    "La fila de la venta se elimina del resultado",
+                    "Se genera un error de integridad referencial"
+                ],
+                "respuesta_correcta": "NULL en todas las columnas de productos"
+            }
+        ],
+        "variante_3": [
+            {
+                "id": "PSQL-SEG-V3-01",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "WHERE",
+                "dificultad": "Principiante",
+                "enunciado": "¿Cuál consulta devuelve los pedidos realizados entre las fechas '2024-01-01' y '2024-06-30'?",
+                "opciones": [
+                    "SELECT * FROM pedidos WHERE fecha BETWEEN '2024-01-01' AND '2024-06-30';",
+                    "SELECT * FROM pedidos HAVING fecha BETWEEN '2024-01-01' AND '2024-06-30';",
+                    "SELECT * FROM pedidos GROUP BY fecha BETWEEN '2024-01-01' AND '2024-06-30';",
+                    "SELECT * FROM pedidos ORDER BY fecha BETWEEN '2024-01-01' AND '2024-06-30';"
+                ],
+                "respuesta_correcta": "SELECT * FROM pedidos WHERE fecha BETWEEN '2024-01-01' AND '2024-06-30';"
+            },
+            {
+                "id": "PSQL-SEG-V3-02",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "JOIN",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Cuál es el resultado de un INNER JOIN cuando ninguna fila de la tabla izquierda coincide con la tabla derecha?",
+                "opciones": [
+                    "Devuelve todas las filas de la tabla izquierda con NULL",
+                    "Devuelve un conjunto vacío (sin filas)",
+                    "Devuelve todas las filas de ambas tablas",
+                    "Genera un error de ejecución"
+                ],
+                "respuesta_correcta": "Devuelve un conjunto vacío (sin filas)"
+            },
+            {
+                "id": "PSQL-SEG-V3-03",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "GROUP_BY",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Cuál consulta muestra las ciudades que tienen más de 5 clientes?",
+                "opciones": [
+                    "SELECT ciudad, COUNT(*) FROM clientes WHERE COUNT(*) > 5 GROUP BY ciudad;",
+                    "SELECT ciudad, COUNT(*) FROM clientes GROUP BY ciudad HAVING COUNT(*) > 5;",
+                    "SELECT ciudad, COUNT(*) FROM clientes GROUP BY ciudad WHERE COUNT(*) > 5;",
+                    "SELECT ciudad FROM clientes ORDER BY COUNT(*) > 5;"
+                ],
+                "respuesta_correcta": "SELECT ciudad, COUNT(*) FROM clientes GROUP BY ciudad HAVING COUNT(*) > 5;"
+            },
+            {
+                "id": "PSQL-SEG-V3-04",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "GROUP_BY",
+                "dificultad": "Intermedio",
+                "enunciado": "¿Cuál función de agregación devuelve la cantidad de filas en un grupo?",
+                "opciones": [
+                    "SUM()",
+                    "AVG()",
+                    "COUNT()",
+                    "MAX()"
+                ],
+                "respuesta_correcta": "COUNT()"
+            },
+            {
+                "id": "PSQL-SEG-V3-05",
+                "tema": "Bases_de_Datos_PostgreSQL",
+                "tipo": "seguimiento",
+                "concepto": "WHERE",
+                "dificultad": "Principiante",
+                "enunciado": "¿Cuál operador se usa en WHERE para buscar valores dentro de una lista?",
+                "opciones": [
+                    "BETWEEN",
+                    "LIKE",
+                    "IN",
+                    "EXISTS"
+                ],
+                "respuesta_correcta": "IN"
+            }
+        ]
+    }
+}
+

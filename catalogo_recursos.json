@@ -1,0 +1,66 @@
+{
+    "Recurso_Video_DB": {
+        "titulo": "Joins Between Tables — Tutorial oficial de PostgreSQL",
+        "fuente": "PostgreSQL Documentation",
+        "formato": "Lectura",
+        "concepto": "JOIN",
+        "enlace": "https://www.postgresql.org/docs/current/tutorial-join.html"
+    },
+    "Recurso_Practica_DB": {
+        "titulo": "Aggregate Functions — Tutorial oficial de PostgreSQL",
+        "fuente": "PostgreSQL Documentation",
+        "formato": "Lectura",
+        "concepto": "GROUP_BY",
+        "enlace": "https://www.postgresql.org/docs/current/tutorial-agg.html"
+    },
+    "Recurso_Lectura_WHERE": {
+        "titulo": "PostgreSQL WHERE — Filtrar filas con condiciones",
+        "fuente": "PostgreSQL Tutorial",
+        "formato": "Lectura",
+        "concepto": "WHERE",
+        "enlace": "https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-where/"
+    },
+    "Recurso_Lectura_JOIN": {
+        "titulo": "PostgreSQL Joins — Todos los tipos de JOIN explicados",
+        "fuente": "PostgreSQL Tutorial",
+        "formato": "Lectura",
+        "concepto": "JOIN",
+        "enlace": "https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-joins/"
+    },
+    "Recurso_Lectura_LEFT_JOIN": {
+        "titulo": "PostgreSQL LEFT JOIN — Conservar filas sin coincidencia",
+        "fuente": "PostgreSQL Tutorial",
+        "formato": "Lectura",
+        "concepto": "JOIN",
+        "enlace": "https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-left-join/"
+    },
+    "Recurso_Lectura_GROUP_BY": {
+        "titulo": "PostgreSQL GROUP BY — Agrupar filas y funciones de agregación",
+        "fuente": "PostgreSQL Tutorial",
+        "formato": "Lectura",
+        "concepto": "GROUP_BY",
+        "enlace": "https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-group-by/"
+    },
+    "Recurso_Referencia_SELECT": {
+        "titulo": "Queries: Overview — Documentación oficial de PostgreSQL",
+        "fuente": "PostgreSQL Documentation",
+        "formato": "Referencia",
+        "concepto": "WHERE",
+        "enlace": "https://www.postgresql.org/docs/current/queries-overview.html"
+    },
+    "Recurso_Referencia_TABLE_EXPR": {
+        "titulo": "Table Expressions — JOIN, WHERE, GROUP BY y HAVING en profundidad",
+        "fuente": "PostgreSQL Documentation",
+        "formato": "Referencia",
+        "concepto": "INTEGRADORA",
+        "enlace": "https://www.postgresql.org/docs/current/queries-table-expressions.html"
+    },
+    "Recurso_Referencia_SELECT_LIST": {
+        "titulo": "Select Lists — Columnas, alias y DISTINCT",
+        "fuente": "PostgreSQL Documentation",
+        "formato": "Referencia",
+        "concepto": "WHERE",
+        "enlace": "https://www.postgresql.org/docs/current/queries-select-lists.html"
+    }
+}
+
