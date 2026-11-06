@@ -1,4 +1,46 @@
 {
+    "Recurso_Video_Logica": {
+        "titulo": "Python: tutorial oficial — introducción y estructuras de control",
+        "fuente": "Python Documentation",
+        "formato": "Tutorial",
+        "concepto": "Lógica de Programación",
+        "enlace": "https://docs.python.org/3/tutorial/"
+    },
+    "Recurso_Lectura_Logica": {
+        "titulo": "More Control Flow Tools",
+        "fuente": "Python Documentation",
+        "formato": "Lectura",
+        "concepto": "Lógica de Programación",
+        "enlace": "https://docs.python.org/3/tutorial/controlflow.html"
+    },
+    "Recurso_Practica_Logica": {
+        "titulo": "Python Exercises",
+        "fuente": "Exercism",
+        "formato": "Práctica",
+        "concepto": "Lógica de Programación",
+        "enlace": "https://exercism.org/tracks/python/exercises"
+    },
+    "Recurso_Video_POO": {
+        "titulo": "Object-Oriented Programming in Python: Classes",
+        "fuente": "Python Documentation",
+        "formato": "Tutorial",
+        "concepto": "Programación Orientada a Objetos",
+        "enlace": "https://docs.python.org/3/tutorial/classes.html"
+    },
+    "Recurso_Lectura_POO": {
+        "titulo": "Clases y objetos en Python",
+        "fuente": "Python Documentation",
+        "formato": "Lectura",
+        "concepto": "Programación Orientada a Objetos",
+        "enlace": "https://docs.python.org/3/tutorial/classes.html"
+    },
+    "Recurso_Practica_POO": {
+        "titulo": "Práctica: clases, objetos, encapsulamiento y colaboración",
+        "fuente": "Exercism",
+        "formato": "Práctica",
+        "concepto": "Programación Orientada a Objetos",
+        "enlace": "https://exercism.org/tracks/python/exercises"
+    },
     "Recurso_Video_DB": {
         "titulo": "Joins Between Tables — Tutorial oficial de PostgreSQL",
         "fuente": "PostgreSQL Documentation",
@@ -61,6 +103,33 @@
         "formato": "Referencia",
         "concepto": "WHERE",
         "enlace": "https://www.postgresql.org/docs/current/queries-select-lists.html"
+    },
+    "Recurso_Video_Node": {
+        "titulo": "Introduction to Node.js",
+        "fuente": "Node.js Documentation",
+        "formato": "Tutorial",
+        "concepto": "Backend con Node.js",
+        "enlace": "https://nodejs.org/en/learn/getting-started/introduction-to-nodejs"
+    },
+    "Recurso_Practica_Node": {
+        "titulo": "The Node.js Event Loop",
+        "fuente": "Node.js Documentation",
+        "formato": "Lectura",
+        "concepto": "Backend con Node.js",
+        "enlace": "https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick"
+    },
+    "Recurso_Video_PHP": {
+        "titulo": "Classes and Objects",
+        "fuente": "PHP Documentation",
+        "formato": "Tutorial",
+        "concepto": "Patrón MVC en PHP",
+        "enlace": "https://www.php.net/manual/en/language.oop5.php"
+    },
+    "Recurso_Lectura_PHP": {
+        "titulo": "Model-View-Controller (MVC)",
+        "fuente": "MDN Web Docs",
+        "formato": "Lectura",
+        "concepto": "Patrón MVC en PHP",
+        "enlace": "https://developer.mozilla.org/en-US/docs/Glossary/MVC"
     }
 }
-

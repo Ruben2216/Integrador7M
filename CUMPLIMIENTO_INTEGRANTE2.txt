@@ -1,0 +1,89 @@
+CUMPLIMIENTO DE INDICACIONES — INTEGRANTE 2
+Interfaz principal, grafo y formularios
+
+Este documento describe cómo se intentó cumplir cada uno de los seis puntos
+solicitados y cómo se incorporó el tema asignado de Programación Orientada a
+Objetos (POO).
+
+1. ESTRUCTURA Y NAVEGACIÓN GENERAL
+
+Se organizó la interfaz Gradio en cinco secciones: Inicio, Diagnóstico, Mi ruta,
+Actividad y Resultados. Desde Inicio se puede ir al diagnóstico; y, después de
+entregar una actividad, se muestra el resultado con opciones para volver a la
+ruta o elegir otra actividad.
+
+La sección Resultados presenta el estado, el puntaje cuando hay calificación
+automática y el detalle por pregunta. Sirve como pantalla integrada de
+resultados. No se conectó un módulo de interfaz independiente del integrante 4:
+se implementó esta presentación dentro de la interfaz principal disponible.
+
+2. SECCIÓN «MI RUTA»
+
+Se conectó la vista con la salida de Motor.consultar(). Muestra la meta, el
+progreso global, el estado de la meta, el siguiente tema recomendado, los pasos
+pendientes y los temas bloqueados. La acción «Actualizar ruta» vuelve a mostrar
+el estado vigente del estudiante.
+
+Cuando un intento PostgreSQL acredita el tema, se agrega a los temas
+completados, se consulta de nuevo el motor y se actualizan la ruta y el grafo.
+Así se mantienen sincronizados los resultados de la actividad y «Mi ruta».
+
+3. GRAFO INTERACTIVO
+
+El grafo distingue visualmente temas acreditados, disponibles y bloqueados.
+Como control asociado para seleccionar un tema se incluyó un selector debajo
+del grafo; al cambiarlo, se resalta ese tema y se muestra su estado, sus
+prerrequisitos y los que aún faltan.
+
+La selección se hace desde el control asociado, no directamente haciendo clic
+en los nodos dibujados. El motor y el grafo usan la misma lista de temas
+acreditados para calcular los estados.
+
+4. RECURSOS REALES
+
+Se amplió catalogo_recursos.json para asociar los identificadores del grafo con
+el título, el formato, la fuente y el enlace del recurso. En la vista de cada
+tema los títulos se presentan como enlaces que el estudiante puede abrir.
+También se completaron entradas para los temas de Lógica, POO, Node.js y MVC.
+
+5. FORMULARIOS DE EJERCICIOS
+
+Para el laboratorio PostgreSQL se presenta un formulario de cuatro ejercicios
+con campos SQL y se envían las respuestas a calificar_laboratorio(). Para el
+seguimiento se cargan cinco preguntas del banco, cada una con sus opciones, y
+se envían a calificar_seguimiento(). Las variantes se entregan sin repetir las
+que ya se usaron en esa sesión de la interfaz.
+
+El tema asignado de POO cuenta con cuatro ejercicios propios en
+ejercicios_poo.json:
+- Clases y objetos: modelar libros.
+- Comportamiento de una clase: cuenta bancaria.
+- Encapsulamiento: controlar el inventario.
+- Colaboración entre clases: pedido y productos.
+
+La práctica POO se recibe y muestra una lista de revisión, pero no calcula una
+nota ni acredita el tema automáticamente. Se dejó así porque el proyecto no
+incluye un evaluador automático de soluciones de POO.
+
+6. NAVEGACIÓN DESPUÉS DE UN INTENTO
+
+Después de enviar una actividad, la interfaz abre Resultados. Desde ahí se
+puede regresar a Mi ruta, que refleja el progreso actualizado, o elegir otra
+actividad. Para PostgreSQL, el resultado incluye el puntaje, la acreditación,
+el detalle por pregunta y los conceptos que conviene repasar.
+
+En seguimiento, la selección de otra actividad solicita una variante nueva
+cuando hay variantes disponibles. Si ya se agotaron, se informa que no hay más
+variantes para usar, en lugar de repetir silenciosamente una ya completada.
+
+ENTREGA Y COMPROBACIÓN
+
+Se comprobó la interfaz ejecutándose localmente y se probaron los flujos de
+ruta, selección de tema y recursos, entrega de POO, laboratorio PostgreSQL y
+dos variantes consecutivas de seguimiento. El laboratorio de prueba acreditó
+con 4/4 respuestas correctas. También se verificó que el progreso y el grafo se
+actualizaran después de acreditar PostgreSQL.
+
+Para iniciar la aplicación desde PowerShell, en la carpeta Integrador7M:
+
+    .\venv\Scripts\python.exe -X utf8 app.py
