@@ -1,5 +1,54 @@
-"""Lanza la interfaz gráfica (Gradio) del recomendador. Uso:  python app.py"""
-from recomendador import Recomendador, construir_interfaz
+"""
+app.py — Punto de entrada principal de la aplicación.
 
-rec = Recomendador("telemetria_estudiantes_simulada.csv", "grafo_conocimiento.json")
-construir_interfaz(rec).launch()
+Uso:
+    python app.py              # abre la interfaz Gradio en el navegador
+    python app.py --no-browser # solo inicia el servidor, sin abrir el navegador
+
+El módulo motor.py expone el Motor (árbol + grafo + A*).
+Este archivo carga el motor UNA vez y lo conecta a la interfaz Gradio.
+"""
+import argparse
+import os
+import sys
+
+# ── Asegura que el directorio del proyecto esté en el path ──────────────────
+_DIR = os.path.dirname(os.path.abspath(__file__))
+if _DIR not in sys.path:
+    sys.path.insert(0, _DIR)
+
+from motor import Motor
+from recomendador import NIVELES, FORMATOS, TEMA_A_NODO, construir_interfaz
+
+# ── Argumentos de línea de comandos ─────────────────────────────────────────
+parser = argparse.ArgumentParser(description="Recomendador de rutas de aprendizaje")
+parser.add_argument(
+    "--no-browser", action="store_true",
+    help="No abrir el navegador automáticamente al iniciar."
+)
+parser.add_argument(
+    "--port", type=int, default=7860,
+    help="Puerto donde se escucha la interfaz (por defecto 7860)."
+)
+parser.add_argument(
+    "--share", action="store_true",
+    help="Generar enlace público temporal con Gradio Share."
+)
+args = parser.parse_args()
+
+# ── Carga del motor (una sola vez) ───────────────────────────────────────────
+print("[app.py] Inicializando motor de recomendación…")
+motor = Motor()
+print("[app.py] Motor listo.")
+
+# ── Interfaz Gradio ──────────────────────────────────────────────────────────
+# La interfaz base de recomendador.py se pasa a launch() con los parámetros
+# de arranque. El motor ya está integrado.
+demo = construir_interfaz(motor._rec)
+
+demo.launch(
+    server_name="0.0.0.0",
+    server_port=args.port,
+    inbrowser=not args.no_browser,
+    share=args.share,
+)
