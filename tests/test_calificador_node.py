@@ -69,14 +69,14 @@ def test_variantes_node_equivalentes_y_no_reutilizadas():
     assert {q["concepto"] for q in first_questions} == {q["concepto"] for q in second_questions}
 
 
-def test_aprobacion_laboratorio_node_se_guarda_con_origen_diagnostico(tmp_path):
+def test_laboratorio_node_aislado_no_acredita_el_tema(tmp_path):
     store = AlmacenProgreso(tmp_path / "progress.json")
     store.iniciar("Backend con Node.js", "Práctico")
     result = normalizar_resultado_calificador(
         calificar_laboratorio_node(RESPUESTAS_LAB_COMPLETAS, 60)
     )
     state = store.guardar_intento(result)
-    assert state["temas_acreditados"]["Backend con Node.js"]["origen"] == "diagnóstico"
+    assert "Backend con Node.js" not in state["temas_acreditados"]
     assert state["intentos"][0]["puntaje"] == 5
     assert state["intentos"][0]["puntaje_maximo"] == 5
 

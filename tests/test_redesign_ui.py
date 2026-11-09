@@ -63,6 +63,10 @@ def test_guardar_perfil_conserva_acreditaciones_verificadas(almacen, motor):
         "aprobado": True,
     }
     almacen.guardar_intento(resultado)
+    previo = almacen.cargar()
+    previo["temas_acreditados"]["Lógica de Programación"] = {
+        "origen": "diagnóstico", "intento_id": resultado["id"], "legado": True}
+    almacen.guardar(previo)
     guardado = aplicacion._persistir_perfil(_perfil(tema="Backend con Node.js"))
     assert temas_acreditados(guardado) == ["Lógica de Programación"]
 
@@ -146,7 +150,7 @@ def test_persistencia_es_idempotente_por_id_de_intento(almacen):
     almacen.guardar_intento(dict(resultado))
     guardado = almacen.cargar()
     assert len(guardado["intentos"]) == 1
-    assert temas_acreditados(guardado) == ["Bases de Datos PostgreSQL"]
+    assert temas_acreditados(guardado) == []
 
 
 def test_variante_de_seguimiento_evita_las_usadas():

@@ -8,9 +8,11 @@ import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-import unicodedata
 
-VERSION = 1
+VERSION = 2
+ETAPAS = ("basico", "intermedio", "avanzado", "integradora")
+NOMBRES_ETAPAS = {"basico": "Básico", "intermedio": "Intermedio",
+                  "avanzado": "Avanzado", "integradora": "Práctica integradora"}
 NIVELES = ("Principiante", "Intermedio", "Avanzado")
 FORMATOS = ("Visual", "Texto", "Práctico")
 TEMAS = (
@@ -49,6 +51,11 @@ class AlmacenProgreso:
             with self.ruta.open(encoding="utf-8") as archivo:
                 estado = json.load(archivo)
             self._validar(estado)
+            if estado["version"] == 1:
+                # La migración se guarda solo durante la próxima escritura normal.
+                estado["version"] = VERSION
+                for acreditacion in estado["temas_acreditados"].values():
+                    acreditacion["legado"] = True
             return estado
         except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
             raise ErrorProgreso(
@@ -57,7 +64,7 @@ class AlmacenProgreso:
 
     @staticmethod
     def _validar(estado):
-        if not isinstance(estado, dict) or estado.get("version") != VERSION:
+        if not isinstance(estado, dict) or estado.get("version") not in (1, VERSION):
             raise ValueError("formato o versión no reconocidos")
         if not isinstance(estado.get("intentos"), list) or not isinstance(estado.get("temas_acreditados"), dict):
             raise ValueError("estructura de intentos/acreditaciones inválida")
@@ -66,6 +73,7 @@ class AlmacenProgreso:
 
     def guardar(self, estado):
         self._validar(estado)
+        estado["version"] = VERSION
         temporal = None
         try:
             self.ruta.parent.mkdir(parents=True, exist_ok=True)
@@ -102,7 +110,7 @@ class AlmacenProgreso:
         return self.guardar(estado)
 
     def guardar_intento(self, resultado):
-        """Guarda salida ya calificada; un ID idempotente, aprobado acredita tema."""
+        """Guarda un intento; solo cuatro etapas aprobadas acreditan temas nuevos."""
         requeridos = ("id", "tema", "tipo_actividad", "puntaje", "tiempo_segundos",
                       "conceptos_con_error", "aprobado")
         if not isinstance(resultado, dict) or any(k not in resultado for k in requeridos):
@@ -127,22 +135,28 @@ class AlmacenProgreso:
             raise ValueError("conceptos_con_error debe ser una lista de textos")
         if not isinstance(resultado["aprobado"], bool):
             raise ValueError("aprobado debe ser booleano y venir del calificador")
+        etapa = resultado.get("etapa")
+        if etapa is not None and etapa not in (*ETAPAS, "diagnostico"):
+            raise ValueError("Etapa de aprendizaje desconocida")
         estado = self.cargar()
         if any(i["id"] == str(resultado["id"]) for i in estado["intentos"]):
             return estado
+        if etapa in ETAPAS:
+            anterior = ETAPAS.index(etapa)
+            aprobadas = etapas_aprobadas(estado, resultado["tema"])
+            if any(paso not in aprobadas for paso in ETAPAS[:anterior]):
+                raise ValueError("Primero aprueba las etapas anteriores del tema")
         intento = dict(resultado)
         intento["id"] = str(intento["id"])
         intento["conceptos_con_error"] = list(intento["conceptos_con_error"] or [])
         intento["fecha"] = intento.get("fecha") or datetime.now(timezone.utc).isoformat()
         estado["intentos"].append(intento)
-        if intento["aprobado"]:
-            tipo_normalizado = "".join(
-                c for c in unicodedata.normalize("NFD", intento["tipo_actividad"].lower())
-                if unicodedata.category(c) != "Mn"
-            )
+        if etapa == "integradora" and intento["aprobado"] and all(
+            paso in etapas_aprobadas(estado, intento["tema"]) for paso in ETAPAS
+        ):
             estado["temas_acreditados"].setdefault(intento["tema"], {
-                "origen": "diagnóstico" if "diagnostico" in tipo_normalizado else "actividad de seguimiento",
-                "intento_id": intento["id"], "fecha": intento["fecha"],
+                "origen": "ruta por niveles", "intento_id": intento["id"],
+                "fecha": intento["fecha"], "legado": False,
             })
         estado["simulacion_activa"] = True
         estado["actualizado_en"] = datetime.now(timezone.utc).isoformat()
@@ -156,3 +170,17 @@ class AlmacenProgreso:
 
 def temas_acreditados(estado):
     return list(estado["temas_acreditados"])
+
+
+def etapas_aprobadas(estado, tema):
+    """Las acreditaciones heredadas no inventan etapas completadas."""
+    return {intento["etapa"] for intento in estado.get("intentos", [])
+            if intento.get("tema") == tema and intento.get("etapa") in ETAPAS
+            and intento.get("aprobado") is True}
+
+
+def siguiente_etapa(estado, tema):
+    if tema in estado.get("temas_acreditados", {}):
+        return None
+    aprobadas = etapas_aprobadas(estado, tema)
+    return next((etapa for etapa in ETAPAS if etapa not in aprobadas), None)

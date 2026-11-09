@@ -5,15 +5,15 @@
 - Navegación Gradio entre **Inicio**, **Diagnóstico**, **Mi ruta**, **Actividad** y **Resultados**.
 - Perfil de diagnóstico conectado con `Motor.consultar()`, incluyendo meta, temas acreditados y estado de la recomendación.
 - Ruta con progreso, siguiente tema, pasos pendientes y lista de temas bloqueados.
-- Grafo interactivo mediante el selector de tema: colores para temas acreditados, disponibles y bloqueados; al seleccionar un tema se muestran su estado, prerrequisitos pendientes y recursos.
+- Grafo de ancho completo con un nodo por tema, avance de cuatro etapas, estado, ruta resaltada y selector accesible para mostrar niveles, prerrequisitos y recursos.
 - Resolución de todos los IDs del grafo a título, formato, fuente y enlace mediante `catalogo_recursos.json`.
-- Laboratorio de cuatro ejercicios PostgreSQL y seguimiento de cinco preguntas con variantes sin repetición, calificados con `calificador.py`.
-- Práctica asignada de POO en `ejercicios_poo.json`: clases y objetos, comportamiento, encapsulamiento y colaboración entre `Pedido` y `Producto`.
+- Cada tema tiene niveles Básico, Intermedio y Avanzado de cinco preguntas; cada nivel requiere al menos cuatro aciertos. El laboratorio o práctica integradora se abre tras aprobar los tres niveles.
+- La práctica POO en `ejercicios_poo.json` analiza la estructura del código Python sin ejecutarlo. Este análisis no verifica el comportamiento real del programa.
 - Después de un intento, se presenta el resultado y se puede regresar a la ruta o elegir otra actividad.
 
 ## Criterios de estado
 
-Los intentos PostgreSQL actualizan el tema acreditado y recalculan la ruta cuando cumplen la regla del calificador. La práctica abierta de POO muestra su lista de revisión y queda marcada como entrega para revisión; no acredita el tema automáticamente porque no hay un evaluador de código POO en el proyecto.
+Un intento aprobado registra su etapa. El tema se acredita y el motor recalcula la ruta solo al aprobar las tres etapas y la práctica integradora. Las acreditaciones del archivo de progreso anterior se conservan como históricas, sin atribuirles etapas que no constan. Los reintentos de un nivel muestran las mismas preguntas.
 
 ## Ejecución y comprobación
 

@@ -352,6 +352,15 @@ a.button-link:focus-visible { outline: 3px solid var(--accent); outline-offset: 
 
 /* ── Layouts adaptables ───────────────────────────────────────────────── */
 .route-layout, .lab-layout { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.graph-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #0c131e;
+  margin: 12px 0 16px;
+}
+#learning-graph { min-width: 720px; }
 .route-layout > .route-main { flex: 1 1 340px; min-width: 0; }
 .route-layout > .route-side { flex: 1 1 380px; min-width: 0; }
 .lab-layout > .lab-editor { flex: 1 1 420px; min-width: 0; }

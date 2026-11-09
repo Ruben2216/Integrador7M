@@ -6,6 +6,7 @@ import pytest
 import interfaz
 import simulacion
 from progreso import AlmacenProgreso
+from niveles import preguntas_nivel
 
 
 @pytest.fixture(scope="module")
@@ -38,9 +39,25 @@ def _estado_con_lab_mvc(eventos, fallar=("M03-SQL",)):
         for c in ejercicio["criterios"]:
             mala = next(o for o in c["opciones"] if o != c["respuesta_correcta"])
             respuestas.append(mala if c["id"] in fallar else c["respuesta_correcta"])
-    estado = interfaz._estado_inicial(simulacion.motor)
+    estado = _preparar_integrador("Patrón MVC en PHP", "PHP MVC · práctica integradora",
+                                  ("Lógica de Programación", "Programación Orientada a Objetos"))
     salida = eventos["calificar_lab_mvc"].fn(*respuestas, estado)
     return salida[0], salida
+
+
+def _preparar_integrador(tema, seleccion, previos):
+    guardado = simulacion.almacen.cargar()
+    for previo in previos:
+        guardado["temas_acreditados"][previo] = {
+            "origen": "diagnóstico", "intento_id": f"antiguo-{previo}", "legado": True}
+    for etapa in ("basico", "intermedio", "avanzado"):
+        guardado["intentos"].append({"id": f"{tema}-{etapa}", "tema": tema,
+                                      "etapa": etapa, "aprobado": True})
+    simulacion.almacen.guardar(guardado)
+    estado = interfaz._estado_inicial(simulacion.motor)
+    estado["tipo_actividad"] = seleccion
+    estado["etapa_activa"] = "integradora"
+    return estado
 
 
 def test_texto_del_boton_y_deshabilitado_sin_intento(app):
@@ -106,13 +123,13 @@ def test_error_inesperado_no_deja_el_boton_bloqueado(app, monkeypatch):
     assert boton["interactive"] is True and circulo["visible"] is False
 
 
-def test_practica_poo_no_habilita_el_boton(app):
+def test_practica_poo_calificada_habilita_el_boton(app):
     _, eventos, _ = app
-    estado = interfaz._estado_inicial(simulacion.motor)
+    estado = _preparar_integrador("Programación Orientada a Objetos", "POO · práctica integradora",
+                                  ("Lógica de Programación",))
     salida = eventos["entregar_poo"].fn("r1", "r2", "", "", estado)
-    assert salida[-2]["interactive"] is False
-    texto, boton, _ = eventos["pedir_explicacion"].fn(salida[0])
-    assert "POO" in texto and boton["interactive"] is False
+    assert salida[-2]["interactive"] is True
+    assert "Etapa pendiente" in salida[1]
 
 
 def test_sin_gemini_configurado_el_boton_lo_indica(monkeypatch):
@@ -128,3 +145,21 @@ def test_reiniciar_vuelve_el_boton_al_inicio(app):
     assert "Aún no hay resultados" in resultados and explicacion == ""
     assert boton["interactive"] is False and boton["value"] == interfaz.TEXTO_BOTON_IA
     assert circulo["visible"] is False
+
+
+def test_interfaz_avanza_al_siguiente_nivel_sin_acreditar_tema(app):
+    _, eventos, _ = app
+    tema = "Lógica de Programación"
+    estado = interfaz._estado_inicial(simulacion.motor)
+    seleccion = "Lógica de Programación · niveles"
+    preparado = eventos["seleccionar_actividad"].fn(seleccion, estado)
+    estado = preparado[-1]
+    assert estado["etapa_activa"] == "basico"
+    preguntas = preguntas_nivel(tema, "basico")
+    respuestas = [p["respuesta_correcta"] for p in preguntas]
+    resultado = eventos["calificar_seg"].fn(*respuestas, estado)
+    assert tema not in resultado[0]["completados"]
+    assert "Etapa aprobada" in resultado[1]
+    assert resultado[13]["value"] is None  # limpia la actividad anterior
+    siguiente = eventos["seleccionar_actividad"].fn(seleccion, resultado[0])
+    assert siguiente[-1]["etapa_activa"] == "intermedio"

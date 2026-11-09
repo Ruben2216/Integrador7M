@@ -21,10 +21,12 @@ def e(value: Any) -> str:
 def _pill(estado: str) -> str:
     mapa = {
         "Acreditado": ("status-ok", "✓"),
+        "Correcta": ("status-ok", "✓"),
+        "Incorrecta": ("status-warn", "!"),
         "Disponible": ("status-info", "→"),
         "Bloqueado": ("status-warn", "!"),
         "Meta completada": ("status-ok", "✓"),
-        "En progreso": ("status-info", "•"),
+        "En progreso": ("status-warn", "•"),
         "Tema acreditado": ("status-ok", "✓"),
         "Tema pendiente": ("status-warn", "!"),
         "Práctica entregada": ("status-warn", "…"),
@@ -179,8 +181,8 @@ def meta_detalle_html(
         f'<span class="eyebrow">Meta seleccionada</span><h3>{e(meta)}</h3>'
         f'<p><b>Prerrequisitos:</b> {req}</p>'
         f'<p><b>Pendientes:</b> {pend}</p>'
-        '<p class="small muted">La meta se acredita cuando el calificador real aprueba '
-        "la actividad de ese tema. Elegir una meta no crea acreditaciones.</p>"
+        '<p class="small muted">La meta se acredita tras aprobar los tres niveles '
+        "y la práctica integradora de ese tema. Elegir una meta no crea acreditaciones.</p>"
         f"<h4>Recursos de la meta</h4>{recursos}"
         "</section>"
     )
@@ -200,11 +202,10 @@ def disponibilidad_html(
         else ""
     )
     nota = (
-        "En el diagnóstico puedes intentar la evaluación de un tema bloqueado: "
-        "si el calificador la aprueba, la acreditación queda registrada. "
-        "La ruta mostrará el efecto real."
+        "El tema tiene prerrequisitos pendientes. Acredítalos antes de iniciar "
+        "sus niveles y la práctica integradora."
         if es_diagnostico and faltantes
-        else "Una selección no acredita el tema; sólo un resultado aprobado lo hace."
+        else "Una selección no acredita el tema; completa las cuatro etapas de evaluación."
     )
     return (
         '<section class="card">'
@@ -228,8 +229,8 @@ def acreditaciones_html(completados: Sequence[str]) -> str:
     return (
         '<div class="card"><b>Acreditaciones verificadas</b>'
         f'<ul class="criteria-list">{items}</ul>'
-        '<p class="small muted">Sólo aparecen aquí los temas con un intento aprobado '
-        "por el calificador y guardado en el progreso local.</p></div>"
+        '<p class="small muted">Incluye temas acreditados con la ruta de cuatro etapas '
+        "y acreditaciones anteriores conservadas en el progreso local.</p></div>"
     )
 
 
@@ -302,7 +303,9 @@ def lista_pasos_html(
         elif tema in ruta_pendiente:
             razon = "Forma parte de la ruta pendiente hacia tu meta."
         elif estado == "Acreditado":
-            razon = "Tema acreditado con un intento calificado."
+            razon = "Tema acreditado tras completar su evaluación o por historial previo."
+        elif estado == "En progreso":
+            razon = "Ya aprobaste etapas; continúa con el siguiente nivel."
         else:
             razon = "Disponible para estudiar."
         pasos.append(
@@ -342,6 +345,8 @@ def tema_detalle_html(
         )
     elif estado == "Acreditado":
         aviso = '<div class="callout good"><b>Tema acreditado.</b> Ya forma parte de tu historial verificado.</div>'
+    elif estado == "En progreso":
+        aviso = '<div class="callout"><b>Tema en progreso.</b> Revisa las etapas pendientes para acreditarlo.</div>'
     elif estado == "Disponible":
         aviso = '<div class="callout good"><b>Tema disponible.</b> Puedes abrir sus recursos o iniciar su actividad conectada.</div>'
     siguiente = ' <span class="status-info">→ siguiente</span>' if es_siguiente else ""
@@ -601,9 +606,8 @@ def _poo_referencia(item: Mapping[str, Any]) -> str:
     return (
         '<section class="card"><b>Criterios de revisión</b>'
         f'<ul class="criteria-list">{lista}</ul>'
-        '<p class="small muted">La práctica abierta se entrega para revisión. En esta '
-        "rama no existe un evaluador automático de código, por lo que no acredita el "
-        "tema por sí sola.</p></section>"
+        '<p class="small muted">Escribe código Python. La revisión automática comprueba '
+        "la estructura del programa sin ejecutarlo; no garantiza su comportamiento.</p></section>"
     )
 
 
@@ -757,7 +761,7 @@ def resultado_revision_html(
     descripciones: Mapping[str, str],
 ) -> str:
     detalle = resultado.get("detalle", [])
-    respuestas = resultado.get("_respuestas", {})
+    respuestas = resultado.get("_respuestas", resultado.get("respuestas", {}))
     items = {item.get("id"): item for item in resultado.get("_items", [])}
     if not detalle:
         return '<p class="muted small">El calificador no entregó detalle por pregunta o ejercicio.</p>'
@@ -767,7 +771,7 @@ def resultado_revision_html(
         item = items.get(identificador, {})
         concepto = entrada.get("concepto") or item.get("concepto") or identificador
         correcto = bool(entrada.get("correcto"))
-        marca = _pill("Acreditado") if correcto else _pill("Tema pendiente")
+        marca = _pill("Correcta") if correcto else _pill("Incorrecta")
         respuesta = respuestas.get(identificador, "")
         if isinstance(respuesta, str) and len(respuesta) > 700:
             respuesta = respuesta[:700] + "…"

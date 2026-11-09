@@ -37,9 +37,12 @@ def normalizar_resultado_calificador(resultado):
     tema = NODO_A_TEMA.get(resultado["tema"], resultado["tema"])
     tipo = resultado["tipo"]
     if tipo == "laboratorio":
-        tipo_actividad = "Diagnóstico (laboratorio)"
+        tipo_actividad = ("Práctica integradora" if resultado.get("etapa") == "integradora"
+                          else "Diagnóstico (laboratorio)")
     elif tipo == "seguimiento":
         tipo_actividad = "Actividad de seguimiento"
+    elif tipo == "nivel":
+        tipo_actividad = "Nivel de aprendizaje"
     else:
         raise ValueError(f"Tipo de actividad del calificador desconocido: {tipo}")
     if "puntaje_obtenido" in resultado and "puntaje_maximo" in resultado:
@@ -50,7 +53,7 @@ def normalizar_resultado_calificador(resultado):
     elif tipo == "laboratorio":
         aciertos = resultado.get("ejercicios_correctos")
         total = resultado.get("total_ejercicios")
-    elif tipo == "seguimiento":
+    elif tipo in ("seguimiento", "nivel"):
         aciertos = resultado.get("correctas")
         total = resultado.get("total_preguntas")
     if not isinstance(aciertos, int) or not isinstance(total, int) or total <= 0:
@@ -72,6 +75,8 @@ def normalizar_resultado_calificador(resultado):
     }
     if "variante" in resultado:
         normalizado["variante"] = resultado["variante"]
+    if "etapa" in resultado:
+        normalizado["etapa"] = resultado["etapa"]
     return normalizado
 
 

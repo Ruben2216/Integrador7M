@@ -6,25 +6,25 @@
       "id": "POO-01",
       "concepto": "Clases y objetos",
       "titulo": "Modelar libros",
-      "enunciado": "Diseña una clase Libro con los atributos titulo y autor, y un método describir() que devuelva ambos datos. Escribe el código y crea dos objetos Libro con información distinta."
+      "enunciado": "Escribe código Python: diseña una clase Libro con los atributos titulo y autor en __init__, y un método describir() que devuelva ambos datos. Crea dos objetos Libro con información distinta. La revisión automática comprueba la estructura, no ejecuta el código."
     },
     {
       "id": "POO-02",
       "concepto": "Comportamiento de una clase",
       "titulo": "Cuenta bancaria",
-      "enunciado": "Diseña una clase CuentaBancaria con un saldo inicial, un método depositar(monto) y otro retirar(monto). Explica o implementa cómo evitar depósitos no positivos y retiros que superen el saldo."
+      "enunciado": "Escribe código Python: diseña una clase CuentaBancaria con saldo inicial en __init__, un método depositar(monto) y otro retirar(monto). Implementa condiciones para evitar depósitos no positivos y retiros que superen el saldo."
     },
     {
       "id": "POO-03",
       "concepto": "Encapsulamiento",
       "titulo": "Controlar el inventario",
-      "enunciado": "Diseña una clase Producto que mantenga su stock encapsulado. Incluye una operación para vender unidades y otra para consultar el stock; evita que una venta deje el inventario en un valor negativo."
+      "enunciado": "Escribe código Python: diseña una clase Producto que mantenga su stock en _stock. Incluye vender(unidades) y consultar_stock(); valida que una venta no deje el inventario negativo."
     },
     {
       "id": "POO-04",
       "concepto": "Colaboración entre clases",
       "titulo": "Pedido y productos",
-      "enunciado": "Propón dos clases, Pedido y Producto, que colaboren para calcular el total de una compra. Indica qué datos y responsabilidades tiene cada clase y escribe el método que recorre los productos para obtener el total."
+      "enunciado": "Escribe código Python: crea las clases Pedido y Producto. En Pedido implementa calcular_total(), que recorra los productos y acumule precio por cantidad. La revisión automática verifica estas estructuras sin ejecutar el código."
     }
   ]
 }

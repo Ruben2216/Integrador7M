@@ -468,12 +468,11 @@ def test_variantes_mvc_no_se_repiten_ni_chocan_con_postgresql():
         obtener_variante_seguimiento_mvc(variantes_seguimiento_mvc())
 
 
-def test_mvc_aprobado_se_guarda_y_acredita_el_tema(tmp_path):
+def test_mvc_aprobado_aislado_se_guarda_sin_acreditar_el_tema(tmp_path):
     almacen = AlmacenProgreso(tmp_path / "progreso.json")
     almacen.iniciar("Patrón MVC en PHP", "Texto")
     estado = almacen.guardar_intento(normalizar_resultado_calificador(_lab_mvc()))
-    assert "Patrón MVC en PHP" in estado["temas_acreditados"]
-    assert estado["temas_acreditados"]["Patrón MVC en PHP"]["origen"] == "diagnóstico"
+    assert "Patrón MVC en PHP" not in estado["temas_acreditados"]
     reabierto = AlmacenProgreso(tmp_path / "progreso.json").cargar()
     assert reabierto["intentos"][0]["tema"] == "Patrón MVC en PHP"
 

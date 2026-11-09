@@ -1,52 +1,36 @@
-"""Interfaz Gradio del recomendador — versión integrada.
-
-Montaje visual sobre la lógica del compañero (commit cc8bca1):
-  · calificador_mvc, laboratorio PHP MVC, seguimientos PHP/PostgreSQL/Node.js
-  · retroalimentación local, IA/Gemini, rúbrica de retroalimentación
-  · variantes de seguimiento, botón de explicación con IA
-
-La presentación usa vistas semánticas de ``ui/vistas.py`` y el CSS centralizado
-de ``ui/estilos.py``. La lógica de calificación, persistencia y motor A* se
-conserva íntegramente sin cambios de responsabilidad.
-"""
+"""Interfaz Gradio del recomendador, niveles formativos y ruta visual."""
 from __future__ import annotations
 
 import json
 import os
 import time
 from typing import Any
-from uuid import uuid4
 
 import gradio as gr
 
 from calificador import (
     calificar_laboratorio,
-    calificar_seguimiento,
     obtener_ejercicios_laboratorio,
-    obtener_variante_seguimiento,
 )
 from calificador_mvc import (
     calificar_laboratorio_mvc,
-    calificar_seguimiento_mvc,
     obtener_conceptos_mvc,
     obtener_ejercicios_laboratorio_mvc,
-    obtener_variante_seguimiento_mvc,
 )
 from calificador_logica import (
     calificar_laboratorio_logica,
-    calificar_seguimiento_logica,
     obtener_conceptos_logica,
     obtener_ejercicios_laboratorio_logica,
-    obtener_variante_seguimiento_logica,
 )
 from calificador_node import (
     calificar_laboratorio_node,
-    calificar_seguimiento_node,
     obtener_ejercicios_laboratorio_node,
-    obtener_variante_seguimiento_node,
 )
 from integracion_calificador import normalizar_resultado_calificador
-from progreso import ErrorProgreso, temas_acreditados
+from progreso import (ErrorProgreso, ETAPAS, NOMBRES_ETAPAS,
+                      siguiente_etapa, temas_acreditados)
+from niveles import calificar_nivel, preguntas_nivel
+from calificador_poo import calificar_laboratorio_poo
 from recomendador import FORMATOS, NIVELES, NODO_A_TEMA, TEMA_A_NODO
 import simulacion
 from retroalimentacion import (
@@ -96,26 +80,23 @@ def _estado_inicial(motor: Any) -> dict[str, Any]:
         "abandono": perfil_guardado.get("abandono", False),
     }
     completados = temas_acreditados(guardado)
-    variantes_usadas = [
-        intento["variante"] for intento in guardado["intentos"] if intento.get("variante")
-    ]
     return {
         "perfil": profile,
         "completados": completados,
         "recomendacion": motor.consultar(**profile, completados=completados),
-        "variantes_usadas": variantes_usadas,
-        "variante_activa": None,
         "tipo_actividad": None,
         "inicio_actividad": None,
         "resultado": None,
         "simulacion_activa": guardado["simulacion_activa"],
         "intentos": guardado["intentos"],
+        "acreditaciones": guardado["temas_acreditados"],
+        "etapa_activa": None,
         "error_progreso": error_progreso,
     }
 
 
 # ── Consultas al grafo y catálogo ───────────────────────────────────────────
-def _estado_del_tema(motor: Any, tema: str, completados: list[str]) -> tuple[str, list[str]]:
+def _estado_del_tema(motor: Any, tema: str, completados: list[str], intentos=None) -> tuple[str, list[str]]:
     nodo = TEMA_A_NODO[tema]
     if tema in completados:
         return "Acreditado", []
@@ -123,7 +104,12 @@ def _estado_del_tema(motor: Any, tema: str, completados: list[str]) -> tuple[str
         NODO_A_TEMA[pre] for pre in motor.grafo[nodo]["prerrequisitos"]
         if NODO_A_TEMA[pre] not in completados
     ]
-    return ("Bloqueado", faltantes) if faltantes else ("Disponible", [])
+    if faltantes:
+        return "Bloqueado", faltantes
+    if any(i.get("tema") == tema and i.get("etapa") in ETAPAS and i.get("aprobado")
+           for i in (intentos or [])):
+        return "En progreso", []
+    return "Disponible", []
 
 
 def _temas_pertinentes(motor: Any, meta: str) -> list[str]:
@@ -154,61 +140,98 @@ def _meta_detalle(motor: Any, catalogo: dict[str, dict[str, Any]], meta: str, co
 def _disponibilidad(motor: Any, tema: str, completados: list[str]) -> str:
     estado, faltantes = _estado_del_tema(motor, tema, completados)
     info = {
-        "Programación Orientada a Objetos": ("Práctica de POO · 4 retos · Revisión", "Práctica abierta para revisión docente"),
-        "Bases de Datos PostgreSQL": ("Laboratorio (4 ejercicios) o seguimiento (5 preguntas)", "Calificación automática con el calificador real de PostgreSQL."),
-        "Backend con Node.js": ("Laboratorio (5 puntos) o seguimiento (5 preguntas)", "Calificación automática con el calificador real de Node.js."),
-        "Lógica de Programación": ("Laboratorio (4 ejercicios) o seguimiento (5 preguntas)", "Calificación automática con el calificador de Lógica."),
-        "Patrón MVC en PHP": ("Laboratorio (4 ejercicios) o seguimiento (5 preguntas)", "Calificación automática con el calificador de MVC."),
+        "Programación Orientada a Objetos": ("Tres niveles y práctica de código Python", "La práctica se califica por estructura sin ejecutar el código."),
+        "Bases de Datos PostgreSQL": ("Tres niveles y laboratorio SQL", "Cada nivel requiere 4/5; después se abre el laboratorio."),
+        "Backend con Node.js": ("Tres niveles y laboratorio Node.js", "Cada nivel requiere 4/5; después se abre el laboratorio."),
+        "Lógica de Programación": ("Tres niveles y práctica integradora", "Cada nivel requiere 4/5; después se abre la práctica."),
+        "Patrón MVC en PHP": ("Tres niveles y práctica integradora", "Cada nivel requiere 4/5; después se abre la práctica."),
     }.get(tema, ("Evaluación no disponible", "Sin actividad conectada."))
     return vistas.disponibilidad_html(tema, estado, faltantes, info[0], info[1])
 
 
 # ── Grafo ───────────────────────────────────────────────────────────────────
-def _dibujar_grafo(motor: Any, completados: list[str], seleccionado: str | None):
-    import matplotlib.pyplot as plt
-    import networkx as nx
-    from matplotlib.patches import Patch
+def _dibujar_grafo(motor: Any, completados: list[str], seleccionado: str | None,
+                  intentos=None, acreditaciones=None, ruta=()):
+    from matplotlib.figure import Figure
+    from matplotlib.patches import FancyBboxPatch, Patch
 
-    grafo = nx.DiGraph()
-    grafo.add_nodes_from(motor.grafo)
-    grafo.add_edges_from(motor._rec.aristas)
-    for capa, generacion in enumerate(nx.topological_generations(grafo)):
-        for nodo in generacion:
-            grafo.nodes[nodo]["capa"] = capa
-    posicion = nx.multipartite_layout(grafo, subset_key="capa")
-    colores, bordes = [], []
-    for nodo in grafo.nodes:
+    # Las posiciones reflejan las cinco dependencias reales, sin empalmar etiquetas.
+    posiciones = {
+        "Logica_de_Programacion": (0, 0),
+        "Programacion_Orientada_a_Objetos": (1.15, .76),
+        "Bases_de_Datos_PostgreSQL": (1.15, -.76),
+        "Backend_con_Nodejs": (2.3, -.76),
+        "Patron_MVC_en_PHP": (2.3, .76),
+    }
+    nombres = {
+        "Logica_de_Programacion": "Lógica",
+        "Programacion_Orientada_a_Objetos": "POO",
+        "Bases_de_Datos_PostgreSQL": "PostgreSQL",
+        "Backend_con_Nodejs": "Node.js",
+        "Patron_MVC_en_PHP": "MVC en PHP",
+    }
+    colores = {"Acreditado": "#4ADE80", "En progreso": "#FBBF24",
+               "Disponible": "#7DD3FC", "Bloqueado": "#64748B"}
+    ruta_nodos = {TEMA_A_NODO[t] for t in ruta if t in TEMA_A_NODO}
+    fig = Figure(figsize=(8.5, 4.6), dpi=115)
+    ax = fig.subplots()
+    fig.patch.set_facecolor("#0C131E")
+    ax.set_facecolor("#0C131E")
+    for origen, destino in motor._rec.aristas:
+        x1, y1 = posiciones[origen]
+        x2, y2 = posiciones[destino]
+        destacada = destino in ruta_nodos and (origen in ruta_nodos or NODO_A_TEMA[origen] in completados)
+        ax.annotate("", xy=(x2 - .35, y2), xytext=(x1 + .35, y1),
+                    arrowprops={"arrowstyle": "-|>", "color": "#79D8C1" if destacada else "#536A7F",
+                                "lw": 2.4 if destacada else 1.6, "mutation_scale": 14})
+    for nodo in motor.grafo:
         tema = NODO_A_TEMA[nodo]
-        estado, _ = _estado_del_tema(motor, tema, completados)
-        colores.append(
-            "#4ADE80" if estado == "Acreditado"
-            else "#7DD3FC" if estado == "Disponible"
-            else "#64748B"
-        )
-        bordes.append("#5EEAD4" if nodo == TEMA_A_NODO.get(seleccionado) else "#2B3A50")
-    fig, ax = plt.subplots(figsize=(7.4, 4.4), dpi=110)
-    fig.patch.set_facecolor("#131E30")
-    ax.set_facecolor("#131E30")
-    nx.draw_networkx_edges(grafo, posicion, ax=ax, arrows=True, arrowsize=17,
-                           edge_color="#5D7088", width=1.4, node_size=4300)
-    nx.draw_networkx_nodes(grafo, posicion, ax=ax, node_color=colores, edgecolors=bordes,
-                           linewidths=2.4, node_size=4300)
-    etiquetas = {nodo: NODO_A_TEMA[nodo].replace(" ", "\n", 2) for nodo in grafo.nodes}
-    nx.draw_networkx_labels(grafo, posicion, labels=etiquetas, ax=ax, font_size=7.5,
-                            font_color="#08111F", font_weight="bold")
-    ax.legend(
-        handles=[
-            Patch(color="#4ADE80", label="Acreditado"),
-            Patch(color="#7DD3FC", label="Disponible"),
-            Patch(color="#64748B", label="Bloqueado"),
-        ],
-        loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.14),
-        labelcolor="#B8C5D6",
-    )
-    ax.set_title("Grafo de conocimiento · borde turquesa: tema seleccionado", color="#B8C5D6", fontsize=9)
+        x, y = posiciones[nodo]
+        estado, _ = _estado_del_tema(motor, tema, completados, intentos)
+        color = colores[estado]
+        legado = bool((acreditaciones or {}).get(tema, {}).get("legado"))
+        etapas = len({i.get("etapa") for i in (intentos or [])
+                      if i.get("tema") == tema and i.get("aprobado") and i.get("etapa") in ETAPAS})
+        avance = "Acreditado previo" if legado else f"{etapas}/4 etapas"
+        caja = FancyBboxPatch((x - .34, y - .25), .68, .5,
+                               boxstyle="round,pad=0.03,rounding_size=0.08",
+                               linewidth=2.5 if tema == seleccionado else 1.5,
+                               edgecolor="#79D8C1" if tema == seleccionado else color,
+                               facecolor="#142535")
+        ax.add_patch(caja)
+        ax.text(x, y + .08, nombres[nodo], ha="center", va="center",
+                color="#F1F5F9", fontsize=10, fontweight="bold")
+        ax.text(x, y - .10, avance, ha="center", va="center",
+                color=color, fontsize=8)
+    ax.set_xlim(-.48, 2.78)
+    ax.set_ylim(-1.37, 1.37)
+    ax.set_aspect(.65)
+    ax.legend(handles=[Patch(facecolor=color, label=estado) for estado, color in colores.items()],
+              loc="lower center", ncol=4, frameon=False, bbox_to_anchor=(.5, -.04),
+              labelcolor="#B8C5D6", fontsize=8)
+    ax.set_title("Ruta de aprendizaje · borde turquesa: tema seleccionado",
+                 color="#B8C5D6", fontsize=10)
     ax.set_axis_off()
     fig.tight_layout()
     return fig
+
+
+def _detalle_etapas(estado: dict[str, Any], tema: str) -> str:
+    aprobadas = {i.get("etapa") for i in estado["intentos"]
+                 if i.get("tema") == tema and i.get("aprobado") and i.get("etapa") in ETAPAS}
+    legado = estado.get("acreditaciones", {}).get(tema, {}).get("legado")
+    actual = next((paso for paso in ETAPAS if paso not in aprobadas), None)
+    filas = "".join(
+        f'<li><span class="step-index">{numero}</span><span class="step-title">{NOMBRES_ETAPAS[paso]}</span>'
+        f'<span class="{"status-ok" if paso in aprobadas else "status-info" if paso == actual and not legado else "status-neutral"}">'
+        f'{"Aprobada" if paso in aprobadas else "Sin registro" if legado else "Siguiente" if paso == actual else "Pendiente"}</span></li>'
+        for numero, paso in enumerate(ETAPAS, 1)
+    )
+    nota = ('<p class="small muted">Acreditación anterior conservada. No se atribuyen niveles que no constan en el historial.</p>'
+            if legado else '<p class="small muted">Cada nivel requiere 4 de 5 aciertos. La práctica final usa su rúbrica propia.</p>')
+    if tema == "Programación Orientada a Objetos":
+        nota += '<p class="small muted">La práctica POO se revisa por estructura; no se ejecuta el código.</p>'
+    return f'<section class="card"><h3>Etapas del tema</h3><ol class="steps">{filas}</ol>{nota}</section>'
 
 
 def _vista_ruta(motor: Any, catalogo: dict[str, dict[str, Any]], estado: dict[str, Any]):
@@ -225,7 +248,7 @@ def _vista_ruta(motor: Any, catalogo: dict[str, dict[str, Any]], estado: dict[st
         recomendacion.get("estado_meta", "En progreso"), completados,
     )
 
-    estados = {t: _estado_del_tema(motor, t, completados) for t in temas}
+    estados = {t: _estado_del_tema(motor, t, completados, estado["intentos"]) for t in temas}
     next_theme = recomendacion.get("siguiente_tema")
     if next_theme:
         estado_next, faltantes_next = estados[next_theme]
@@ -245,7 +268,8 @@ def _vista_ruta(motor: Any, catalogo: dict[str, dict[str, Any]], estado: dict[st
 
     lista_html = vistas.lista_pasos_html(temas, estados, next_theme, recomendacion.get("ruta_pendiente", []))
     seleccionado = next_theme if next_theme in temas else temas[0]
-    figura = _dibujar_grafo(motor, completados, seleccionado)
+    figura = _dibujar_grafo(motor, completados, seleccionado, estado["intentos"],
+                           estado.get("acreditaciones"), ruta)
     detalle = vistas.tema_detalle_html(
         seleccionado, estados[seleccionado][0],
         [NODO_A_TEMA[n] for n in motor.grafo[TEMA_A_NODO[seleccionado]]["prerrequisitos"]],
@@ -253,6 +277,7 @@ def _vista_ruta(motor: Any, catalogo: dict[str, dict[str, Any]], estado: dict[st
         _recursos_html(catalogo, seleccionado, motor),
         "Consulta Mi ruta", "", es_siguiente=True,
     )
+    detalle += _detalle_etapas(estado, seleccionado)
     return cabecera, siguiente_html, lista_html, figura, detalle, gr.update(value=seleccionado)
 
 
@@ -284,10 +309,28 @@ def _persistir_perfil(perfil: dict[str, Any]) -> dict[str, Any]:
 
 # ── Actividades conectadas ─────────────────────────────────────────────────
 SEGUIMIENTOS = {
-    "PostgreSQL · seguimiento": (obtener_variante_seguimiento, calificar_seguimiento),
-    "PHP MVC · seguimiento": (obtener_variante_seguimiento_mvc, calificar_seguimiento_mvc),
-    "Lógica de Programación · seguimiento": (obtener_variante_seguimiento_logica, calificar_seguimiento_logica),
+    "Lógica de Programación · niveles": "Lógica de Programación",
+    "POO · niveles": "Programación Orientada a Objetos",
+    "PostgreSQL · niveles": "Bases de Datos PostgreSQL",
+    "Backend con Node.js · niveles": "Backend con Node.js",
+    "PHP MVC · niveles": "Patrón MVC en PHP",
 }
+LABORATORIOS = {
+    "Lógica de Programación · práctica integradora": "Lógica de Programación",
+    "POO · práctica integradora": "Programación Orientada a Objetos",
+    "PostgreSQL · práctica integradora": "Bases de Datos PostgreSQL",
+    "Backend con Node.js · práctica integradora": "Backend con Node.js",
+    "PHP MVC · práctica integradora": "Patrón MVC en PHP",
+}
+
+
+def _seleccion_para_tema(estado: dict[str, Any], tema: str | None) -> str | None:
+    if not tema:
+        return None
+    etapa = siguiente_etapa({"intentos": estado["intentos"],
+                            "temas_acreditados": estado.get("acreditaciones", {})}, tema)
+    opciones = SEGUIMIENTOS if etapa in ETAPAS[:3] else LABORATORIOS if etapa == "integradora" else {}
+    return next((etiqueta for etiqueta, destino in opciones.items() if destino == tema), None)
 
 GEMINI_ACTIVO = cargar_config().disponible
 TEXTO_BOTON_IA = "Pedir explicación con IA (Gemini)"
@@ -325,37 +368,9 @@ def _resultado_markdown(resultado: dict[str, Any], retroalimentacion=None, motor
         tema_en_grafo = tema
     except KeyError:
         tema_en_grafo = None
-    if resultado.get("tipo") == "poo":
-        respondidos = resultado["respondidos"]
-        principal = vistas.resultado_principal_html(
-            resultado, {}, "Práctica de POO · 4 retos"
-        )
-        principal = (
-            '<section class="result-card">'
-            '<span class="eyebrow">Resultado verificado</span>'
-            f"<h2>{tema}</h2>"
-            '<p class="muted small">Práctica de POO · 4 retos</p>'
-            f'<div class="score-line"><b>{respondidos} / 4</b><span class="muted">respuestas entregadas</span>'
-            '• Práctica entregada · pendiente de revisión</div>'
-            '<div class="entity-grid" style="margin-top:14px">'
-            '<div><h3>Qué hiciste bien</h3>'
-            '<ul class="criteria-list"><li class="criteria-ok">✓ Entregaste tu solución para revisión.</li>'
-            f'<li class="criteria-ok">✓ Completaste {respondidos} / 4 retos.</li></ul></div>'
-            '<div><h3>Qué debes reforzar</h3>'
-            '<ul class="criteria-list"><li class="criteria-bad">! La práctica no tiene evaluador automático conectado; no se acredita hasta la revisión.</li></ul></div>'
-            '</div></section>'
-        )
-        efecto = (
-            '<section class="route-card"><span class="eyebrow">Cómo afecta tu ruta</span>'
-            "<h3>Práctica entregada · pendiente de revisión</h3>"
-            '<p class="muted">La práctica abierta se entrega para revisión; no acredita el tema por sí sola.</p></section>'
-        )
-        revision = vistas.resultado_revision_html(resultado, {})
-        retro = vistas.resultado_retro_html(resultado)
-        recursos = _recursos_html(catalogo, tema_en_grafo, motor) if catalogo and motor and tema_en_grafo else ""
-        return principal, efecto, revision, retro, vistas.recurso_repaso_html(recursos)
-
-    acreditado = resultado["acreditado"]
+    etapa_aprobada = resultado["acreditado"]
+    estado = resultado.get("_estado", {})
+    acreditado = tema in estado.get("completados", [])
     if resultado["tipo"] == "laboratorio":
         correctas = resultado.get("puntaje_obtenido", resultado.get("ejercicios_correctos", 0))
         total = resultado.get("puntaje_maximo", resultado.get("total_ejercicios", 0))
@@ -379,12 +394,14 @@ def _resultado_markdown(resultado: dict[str, Any], retroalimentacion=None, motor
     bien_html = "".join(f'<li class="criteria-ok">{x}</li>' for x in bien)
     ref_html = "".join(f'<li class="criteria-bad">{x}</li>' for x in reforzar)
 
-    estado_texto = "Tema acreditado" if acreditado else "Tema pendiente"
+    estado_texto = ("Tema acreditado" if acreditado else
+                    "Etapa aprobada · tema pendiente" if etapa_aprobada else "Etapa pendiente")
+    etapa_nombre = NOMBRES_ETAPAS.get(resultado.get("etapa"), "Diagnóstico")
     principal = (
         '<section class="result-card">'
         '<span class="eyebrow">Resultado verificado</span>'
         f"<h2>{tema}</h2>"
-        f'<p class="muted small">{resultado.get("tipo", "actividad").capitalize()}</p>'
+        f'<p class="muted small">{vistas.e(etapa_nombre)}</p>'
         f'<div class="score-line"><b>{correctas} / {total}</b><span class="muted">aciertos o puntos</span>'
         f'• {estado_texto}</div>'
         '<div class="entity-grid" style="margin-top:14px">'
@@ -393,13 +410,13 @@ def _resultado_markdown(resultado: dict[str, Any], retroalimentacion=None, motor
         '</div></section>'
     )
 
-    rec = estado.get("recomendacion") if (estado := resultado.get("_estado")) else None
+    rec = estado.get("recomendacion")
     siguiente = rec.get("siguiente_tema") if rec else None
     efecto = (
         f'<section class="route-card"><span class="eyebrow">Cómo afecta tu ruta</span>'
-        f"<h3>{'Tema acreditado · ruta actualizada' if acreditado else 'Tema sigue pendiente'}</h3>"
+        f"<h3>{'Tema acreditado · ruta actualizada' if acreditado else 'Etapa aprobada · continúa el tema' if etapa_aprobada else 'Etapa pendiente'}</h3>"
         f'<p><b>Siguiente paso:</b> {siguiente or "revisa Mi ruta"}.</p>'
-        '<p class="muted small">El bloqueo y el cierre de la meta provienen del motor A*.</p></section>'
+        '<p class="muted small">El tema se acredita al aprobar las tres etapas y la práctica final.</p></section>'
     )
     revision = vistas.resultado_revision_html(resultado, {})
     retro = vistas.resultado_retro_html(resultado)
@@ -422,14 +439,11 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
 
     # ── Disponibilidad de actividades (catálogo visual) ─────────────────
     _ACTIVIDADES_POR_TEMA = {
-        "Programación Orientada a Objetos": "Práctica de POO · 4 retos · Revisión",
-        "Bases de Datos PostgreSQL": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
-        "Backend con Node.js": "Laboratorio (5 puntos) o seguimiento (5 preguntas)",
-        "Lógica de Programación": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
-        "Patrón MVC en PHP": "Laboratorio (4 ejercicios) o seguimiento (5 preguntas)",
+        tema: "Básico · Intermedio · Avanzado · práctica integradora"
+        for tema in motor.temas
     }
     estados_actividad = {
-        tema: _estado_del_tema(motor, tema, estado_inicial["completados"])
+        tema: _estado_del_tema(motor, tema, estado_inicial["completados"], estado_inicial["intentos"])
         for tema in motor.temas
     }
     actividades_por_tema = {
@@ -445,7 +459,8 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
     # Estos montajes conservan el orden de entradas que reciben los calificadores.
     def montar_poo(ejercicio, numero):
         gr.HTML(vistas.actividad_enunciado_html(ejercicio))
-        return [gr.Textbox(lines=6, label=f"Respuesta {ejercicio['id']}")]
+        return [gr.Textbox(lines=10, label=f"Código Python {ejercicio['id']}",
+                           elem_classes=["activity-editor"])]
 
     def montar_sql(ejercicio, numero):
         gr.HTML(vistas.actividad_enunciado_html(ejercicio))
@@ -526,15 +541,10 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                            placeholder=ejemplos_node[numero])]
 
     preguntas_seg = []
-    preguntas_seg_node = []
 
     def montar_seguimiento(item, numero):
         preguntas_seg.append(gr.Markdown(elem_classes=["activity-prompt"]))
         return [gr.Radio([], label=f"Respuesta {numero + 1}", show_label=False, elem_classes=["activity-options"])]
-
-    def montar_seguimiento_node(item, numero):
-        preguntas_seg_node.append(gr.Markdown(elem_classes=["activity-prompt"]))
-        return [gr.Radio([], label=f"Respuesta Node.js {numero + 1}", show_label=False, elem_classes=["activity-options"])]
 
     with gr.Blocks(title="Rutas de aprendizaje · Proyecto Integrador") as demo:
         estado = gr.State(estado_inicial)
@@ -624,11 +634,12 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                     abrir_siguiente = gr.Button("Iniciar actividad", variant="primary")
                     actualizar_ruta = gr.Button("Actualizar ruta")
                     cambiar_meta = gr.Button("Cambiar meta")
+                with gr.Group(elem_classes=["graph-scroll"]):
+                    grafo = gr.Plot(value=vr[3], label="Grafo de conocimiento", elem_id="learning-graph")
                 with gr.Row(elem_classes=["route-layout"]):
                     with gr.Column(elem_classes=["route-main"]):
                         lista_pasos = gr.HTML(vr[2])
                     with gr.Column(elem_classes=["route-side"]):
-                        grafo = gr.Plot(value=vr[3], label="Grafo de conocimiento")
                         tema_grafo = gr.Dropdown(motor.temas, value=estado_inicial["perfil"]["tema"], label="Explorar un tema del grafo")
                         tema_detalle = gr.HTML(vr[4])
                         ir_prerrequisito = gr.Button("Ir al prerrequisito")
@@ -646,15 +657,8 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                     gr.HTML(catalogo_disponibilidad_html, elem_id="catalogo-disponibilidad")
                 actividad_selector = gr.Radio(
                     [
-                        "Lógica de Programación · laboratorio",
-                        "Lógica de Programación · seguimiento",
-                        "POO · clases y objetos",
-                        "PostgreSQL · laboratorio",
-                        "PostgreSQL · seguimiento",
-                        "Backend con Node.js · laboratorio diagnóstico",
-                        "Backend con Node.js · seguimiento",
-                        "PHP MVC · laboratorio",
-                        "PHP MVC · seguimiento",
+                        *SEGUIMIENTOS,
+                        *LABORATORIOS,
                     ],
                     value=None, label="Actividad", elem_classes=["activity-catalog"],
                 )
@@ -670,7 +674,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_poo:
                     vista_poo = VistaActividad(
                         "Programación Orientada a Objetos", banco_poo["ejercicios"], montar_poo,
-                        "Entregar práctica POO",
+                        "Calificar práctica POO",
                         lambda item: gr.HTML(vistas.actividad_referencia_html({"modo": "poo"}, item)),
                     )
                     respuestas_poo, enviar_poo = vista_poo.respuestas, vista_poo.enviar
@@ -691,8 +695,8 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
 
                 with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_seguimiento:
                     vista_seg = VistaActividad(
-                        "Actividad de seguimiento", list(range(5)), montar_seguimiento,
-                        "Calificar seguimiento", seguimiento=True,
+                        "Niveles de aprendizaje", list(range(5)), montar_seguimiento,
+                        "Calificar nivel", seguimiento=True,
                     )
                     respuestas_seg, enviar_seg = vista_seg.respuestas, vista_seg.enviar
 
@@ -703,14 +707,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                     )
                     respuestas_lab_node, enviar_lab_node = vista_node.respuestas, vista_node.enviar
 
-                with gr.Group(visible=False, elem_classes=["activity-panel"]) as grupo_seguimiento_node:
-                    vista_seg_node = VistaActividad(
-                        "Seguimiento Node.js", list(range(5)), montar_seguimiento_node,
-                        "Calificar seguimiento Node.js", seguimiento=True,
-                    )
-                    respuestas_seg_node, enviar_seg_node = vista_seg_node.respuestas, vista_seg_node.enviar
-
-                vistas_actividad = [vista_logica, vista_poo, vista_sql, vista_mvc, vista_seg, vista_node, vista_seg_node]
+                vistas_actividad = [vista_logica, vista_poo, vista_sql, vista_mvc, vista_seg, vista_node]
 
             # ── Resultados ─────────────────────────────────────────────────
             with gr.Tab("Resultados", id="resultados"):
@@ -725,7 +722,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                     resultado_retro = gr.HTML()
                 resultado_recurso = gr.HTML()
                 with gr.Row(elem_classes=["button-row"]):
-                    reintentar = gr.Button("Reintentar")
+                    reintentar = gr.Button("Volver a la actividad")
                     otra_actividad = gr.Button("Elegir otra actividad")
                     volver_ruta = gr.Button("Volver a Mi ruta", variant="primary")
                 with gr.Row(elem_classes=["button-row"]):
@@ -831,6 +828,7 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             nuevo["perfil"] = perfil
             nuevo["completados"] = temas_acreditados(guardado)
             nuevo["intentos"] = guardado["intentos"]
+            nuevo["acreditaciones"] = guardado["temas_acreditados"]
             nuevo["simulacion_activa"] = True
             _actualizar_recomendacion(motor, nuevo)
             vr = _vista_ruta(motor, catalogo, nuevo)
@@ -862,12 +860,17 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
         )
 
         def mostrar_tema(tema_v, estado_actual):
+            estado_tema, faltantes = _estado_del_tema(
+                motor, tema_v, estado_actual["completados"], estado_actual["intentos"])
             return (
                 vistas.tema_detalle_html(
-                    tema_v, _estado_del_tema(motor, tema_v, estado_actual["completados"])[0],
-                    [], [], _recursos_html(catalogo, tema_v, motor), "", "", es_siguiente=False,
-                ),
-                _dibujar_grafo(motor, estado_actual["completados"], tema_v),
+                    tema_v, estado_tema,
+                    [NODO_A_TEMA[n] for n in motor.grafo[TEMA_A_NODO[tema_v]]["prerrequisitos"]],
+                    faltantes, _recursos_html(catalogo, tema_v, motor), "", "", es_siguiente=False,
+                ) + _detalle_etapas(estado_actual, tema_v),
+                _dibujar_grafo(motor, estado_actual["completados"], tema_v,
+                               estado_actual["intentos"], estado_actual.get("acreditaciones"),
+                               estado_actual["recomendacion"].get("ruta_pendiente", [])),
             )
 
         tema_grafo.change(
@@ -878,75 +881,53 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             nuevo = dict(estado_actual)
             nuevo["tipo_actividad"] = seleccion
             nuevo["inicio_actividad"] = time.monotonic() if seleccion else None
-            nuevo["variante_activa"] = None
-            node_id = TEMA_A_NODO["Backend con Node.js"]
-            node_prerrequisitos = [NODO_A_TEMA[n] for n in motor.grafo[node_id]["prerrequisitos"]
-                                   if NODO_A_TEMA[n] not in nuevo["completados"]]
-            node_followup_allowed = (
-                seleccion == "Backend con Node.js · seguimiento" and not node_prerrequisitos
-            )
+            nuevo["etapa_activa"] = None
+            tema_seleccionado = SEGUIMIENTOS.get(seleccion) or LABORATORIOS.get(seleccion)
+            faltantes = []
+            if tema_seleccionado:
+                faltantes = [NODO_A_TEMA[n] for n in motor.grafo[TEMA_A_NODO[tema_seleccionado]]["prerrequisitos"]
+                             if NODO_A_TEMA[n] not in nuevo["completados"]]
+            guardado = {"intentos": nuevo["intentos"], "temas_acreditados": nuevo.get("acreditaciones", {})}
+            etapa = siguiente_etapa(guardado, tema_seleccionado) if tema_seleccionado else None
+            nivel_visible = seleccion in SEGUIMIENTOS and etapa in ETAPAS[:3] and not faltantes
+            practica_visible = seleccion in LABORATORIOS and etapa == "integradora" and not faltantes
             visibilidad = [
-                gr.update(visible=seleccion == "Lógica de Programación · laboratorio"),
-                gr.update(visible=seleccion == "POO · clases y objetos"),
-                gr.update(visible=seleccion == "PostgreSQL · laboratorio"),
-                gr.update(visible=seleccion == "PHP MVC · laboratorio"),
-                gr.update(visible=seleccion in SEGUIMIENTOS),
-                gr.update(visible=seleccion == "Backend con Node.js · laboratorio diagnóstico"),
-                gr.update(visible=node_followup_allowed),
+                gr.update(visible=practica_visible and tema_seleccionado == "Lógica de Programación"),
+                gr.update(visible=practica_visible and tema_seleccionado == "Programación Orientada a Objetos"),
+                gr.update(visible=practica_visible and tema_seleccionado == "Bases de Datos PostgreSQL"),
+                gr.update(visible=practica_visible and tema_seleccionado == "Patrón MVC en PHP"),
+                gr.update(visible=nivel_visible),
+                gr.update(visible=practica_visible and tema_seleccionado == "Backend con Node.js"),
             ]
             prompts = [gr.update(value="") for _ in range(5)]
             radios = [gr.update(choices=[], value=None) for _ in range(5)]
-            prompts_node = [gr.update(value="") for _ in range(5)]
-            radios_node = [gr.update(choices=[], value=None) for _ in range(5)]
             instruccion = "Selecciona una actividad para mostrar sus ejercicios."
-            if seleccion == "Lógica de Programación · laboratorio":
-                instruccion = ("Resuelve los cuatro ejercicios de lógica eligiendo una opción en cada criterio. "
-                               "Se acredita con 3 de 4 ejercicios correctos, incluida la integradora.")
-            elif seleccion == "POO · clases y objetos":
-                instruccion = "Responde los cuatro ejercicios. La entrega se acompaña de una lista de revisión, no de una nota automática."
-            elif seleccion == "PostgreSQL · laboratorio":
-                instruccion = "Resuelve los cuatro ejercicios SQL. El calificador verificará los resultados y la regla de acreditación."
-            elif seleccion == "PHP MVC · laboratorio":
-                instruccion = ("Resuelve los cuatro ejercicios de MVC eligiendo una opción en cada criterio. "
-                               "Se acredita con 3 de 4 ejercicios correctos, incluida la integradora.")
-            elif seleccion in SEGUIMIENTOS:
-                obtener_variante, _ = SEGUIMIENTOS[seleccion]
-                try:
-                    variante, preguntas = obtener_variante(nuevo["variantes_usadas"])
-                except ValueError as exc:
-                    instruccion = f"**No se puede iniciar el seguimiento:** {exc}"
-                else:
-                    nuevo["variante_activa"] = variante
-                    for indice, pregunta in enumerate(preguntas):
-                        prompts[indice] = gr.update(value=f"**{pregunta['id']} · {pregunta['concepto']}**\n\n{pregunta['enunciado']}")
-                        radios[indice] = gr.update(choices=pregunta["opciones"], value=None)
-                    instruccion = f"Variante asignada: **{variante}**."
-            elif seleccion == "Backend con Node.js · laboratorio diagnóstico":
-                instruccion = "Resuelve los cuatro ejercicios. Se acredita con al menos 4/5 puntos."
-            elif seleccion == "Backend con Node.js · seguimiento":
-                if node_prerrequisitos:
-                    instruccion = f"Actividad bloqueada. Primero acredita: {', '.join(node_prerrequisitos)}."
-                else:
-                    try:
-                        variante, preguntas = obtener_variante_seguimiento_node(nuevo["variantes_usadas"])
-                    except ValueError as exc:
-                        instruccion = f"**No se puede iniciar el seguimiento:** {exc}"
-                    else:
-                        nuevo["variante_activa"] = variante
-                        for indice, pregunta in enumerate(preguntas):
-                            prompts_node[indice] = gr.update(value=f"**{pregunta['id']} · {pregunta['concepto']}**\n\n{pregunta['pregunta']}")
-                            radios_node[indice] = gr.update(choices=[pregunta["respuesta"]] + ["Opción A", "Opción B", "Opción C"], value=None)
-                        instruccion = f"Variante asignada: **{variante}**."
+            if faltantes:
+                instruccion = f"Primero acredita: {', '.join(faltantes)}."
+            elif tema_seleccionado and etapa is None:
+                instruccion = "Este tema ya está acreditado. Puedes consultar su avance en Mi ruta."
+            elif nivel_visible:
+                nuevo["etapa_activa"] = etapa
+                for indice, pregunta in enumerate(preguntas_nivel(tema_seleccionado, etapa)):
+                    prompts[indice] = gr.update(value=f"**{pregunta['concepto']}**\n\n{pregunta['enunciado']}")
+                    radios[indice] = gr.update(choices=pregunta["opciones"], value=None)
+                instruccion = f"Nivel **{NOMBRES_ETAPAS[etapa]}** · 5 preguntas · aprueba con 4 aciertos."
+            elif practica_visible:
+                nuevo["etapa_activa"] = "integradora"
+                instruccion = ("Práctica integradora desbloqueada. Aprueba con la rúbrica indicada para este tema. "
+                               "En POO se analiza la estructura del código Python, sin ejecutarlo.")
+            elif tema_seleccionado:
+                instruccion = ("Primero completa el nivel **" + NOMBRES_ETAPAS[etapa] +
+                               "**; luego podrás abrir la práctica integradora.")
             return (
-                *visibilidad, *prompts, *radios, *prompts_node, *radios_node,
+                *visibilidad, *prompts, *radios,
                 instruccion, nuevo,
             )
 
         seleccion_outputs = [
             grupo_logica, grupo_poo, grupo_laboratorio, grupo_mvc, grupo_seguimiento,
-            grupo_laboratorio_node, grupo_seguimiento_node,
+            grupo_laboratorio_node,
             *preguntas_seg, *respuestas_seg,
-            *preguntas_seg_node, *respuestas_seg_node,
             instrucciones, estado,
         ]
         tipo_actividad = actividad_selector
@@ -969,52 +950,86 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             show_progress="hidden",
         )
 
+        abrir_siguiente.click(
+            lambda actual: (
+                gr.update(selected="actividad" if actual["recomendacion"].get("siguiente_tema") else "ruta"),
+                gr.update(value=_seleccion_para_tema(
+                    actual, actual["recomendacion"].get("siguiente_tema"))),
+            ),
+            estado, [navegacion, tipo_actividad],
+        ).then(seleccionar_actividad, [tipo_actividad, estado], seleccion_outputs)
+
+        def abrir_desde_diagnostico(tema_v, actual):
+            faltantes = [NODO_A_TEMA[n] for n in motor.grafo[TEMA_A_NODO[tema_v]]["prerrequisitos"]
+                         if NODO_A_TEMA[n] not in actual["completados"]]
+            if faltantes:
+                return gr.update(), gr.update(), (
+                    "Primero acredita los prerrequisitos: " + ", ".join(faltantes) + ".")
+            seleccion = _seleccion_para_tema(actual, tema_v)
+            if not seleccion:
+                return gr.update(), gr.update(), "El tema ya está acreditado."
+            return gr.update(selected="actividad"), gr.update(value=seleccion), (
+                "El diagnóstico orienta tu ruta; completar las cuatro etapas acredita el tema.")
+
+        evaluar_tema.click(
+            abrir_desde_diagnostico, [tema_evaluar, estado],
+            [navegacion, tipo_actividad, aviso_diag],
+        ).then(seleccionar_actividad, [tipo_actividad, estado], seleccion_outputs)
+
         def registrar_resultado(resultado, estado_actual):
             try:
-                if resultado.get("tipo") == "poo":
-                    persistible = {
-                        "id": str(uuid4()), "tema": "Programación Orientada a Objetos",
-                        "tipo_actividad": "Práctica POO", "puntaje": resultado["respondidos"],
-                        "puntaje_maximo": resultado["total"], "tiempo_segundos": 0,
-                        "conceptos_con_error": [], "aprobado": False,
-                        "detalle": resultado.get("detalle", []),
-                    }
-                else:
-                    persistible = normalizar_resultado_calificador(resultado)
+                seleccion = estado_actual.get("tipo_actividad")
+                tema_esperado = SEGUIMIENTOS.get(seleccion) or LABORATORIOS.get(seleccion)
+                tema_resultado = NODO_A_TEMA.get(resultado.get("tema"), resultado.get("tema"))
+                etapa_esperada = siguiente_etapa(
+                    {"intentos": estado_actual["intentos"],
+                     "temas_acreditados": estado_actual.get("acreditaciones", {})},
+                    tema_esperado) if tema_esperado else None
+                if (tema_resultado != tema_esperado or
+                    estado_actual.get("etapa_activa") != etapa_esperada or
+                    (seleccion in SEGUIMIENTOS and etapa_esperada not in ETAPAS[:3]) or
+                    (seleccion in LABORATORIOS and etapa_esperada != "integradora")):
+                    raise ValueError("La etapa activa cambió. Vuelve a abrir la actividad.")
+                faltantes = [NODO_A_TEMA[n] for n in motor.grafo[TEMA_A_NODO[tema_esperado]]["prerrequisitos"]
+                             if NODO_A_TEMA[n] not in estado_actual["completados"]]
+                if faltantes:
+                    raise ValueError("Primero acredita los prerrequisitos del tema.")
+                resultado["etapa"] = etapa_esperada
+                persistible = normalizar_resultado_calificador(resultado)
                 guardado = simulacion.persistir_intento(persistible)
             except (ErrorProgreso, ValueError, TypeError, OverflowError) as exc:
                 vr = _vista_ruta(motor, catalogo, estado_actual)
                 return (
                     estado_actual, f"## No se guardó el resultado\n\n{exc}",
-                    vr[0], vr[1], vr[2], vr[3], vr[4], vr[5],
-                    gr.update(selected="resultados"), gr.update(), gr.update(), gr.update(), gr.update(),
+                    "", "", "", "", *vr,
+                    gr.update(selected="resultados"), gr.update(), "", gr.update(), gr.update(visible=False),
                 )
             retroalimentacion = _retroalimentacion_local(resultado, estado_actual["perfil"].get("formato"))
             nuevo = dict(estado_actual)
             nuevo["completados"] = temas_acreditados(guardado)
             nuevo["intentos"] = guardado["intentos"]
-            nuevo["variantes_usadas"] = [i["variante"] for i in guardado["intentos"] if i.get("variante")]
+            nuevo["acreditaciones"] = guardado["temas_acreditados"]
             nuevo["simulacion_activa"] = guardado["simulacion_activa"]
             nuevo["resultado"] = resultado
             _actualizar_recomendacion(motor, nuevo)
+            resultado["_estado"] = {"completados": list(nuevo["completados"]),
+                                    "recomendacion": nuevo["recomendacion"]}
             vr = _vista_ruta(motor, catalogo, nuevo)
             principal, efecto, revision, retro, recurso = _resultado_markdown(resultado, retroalimentacion, motor, catalogo)
             return (
                 nuevo, principal, efecto, revision, retro, recurso,
                 vr[0], vr[1], vr[2], vr[3], vr[4], vr[5],
-                gr.update(selected="resultados"),
-                "", gr.update(**_boton_ia(resultado.get("tipo") != "poo")), gr.update(visible=False),
+                gr.update(selected="resultados"), gr.update(value=None),
+                "", gr.update(**_boton_ia(True)), gr.update(visible=False),
             )
 
         def entregar_poo(*valores):
             estado_actual = valores[-1]
-            respuestas = [str(r or "").strip() for r in valores[:-1]]
-            resultado = {
-                "tipo": "poo", "tema": "Programación Orientada a Objetos",
-                "respondidos": sum(bool(r) for r in respuestas), "total": len(respuestas),
-                "acreditado": False,
-                "detalle": [{"id": f"POO-{i + 1:02d}", "respuesta": r} for i, r in enumerate(respuestas)],
-            }
+            respuestas = {f"POO-{i + 1:02d}": str(r or "").strip()
+                          for i, r in enumerate(valores[:-1])}
+            inicio = estado_actual.get("inicio_actividad") or time.monotonic()
+            resultado = calificar_laboratorio_poo(respuestas, max(0.0, time.monotonic() - inicio))
+            resultado["respuestas"] = respuestas
             return registrar_resultado(resultado, estado_actual)
 
         def calificar_lab(*valores):
@@ -1043,49 +1058,31 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
 
         def calificar_seg(*valores):
             estado_actual = valores[-1]
-            variante = estado_actual.get("variante_activa")
             seleccion = estado_actual.get("tipo_actividad")
-            if not variante or seleccion not in SEGUIMIENTOS:
-                raise ValueError("Selecciona una variante de seguimiento antes de calificar.")
-            obtener_variante, calificar = SEGUIMIENTOS[seleccion]
-            variante_actual, preguntas = obtener_variante(estado_actual["variantes_usadas"])
-            if variante_actual != variante:
-                raise ValueError("La variante activa no coincide.")
+            etapa = estado_actual.get("etapa_activa")
+            if seleccion not in SEGUIMIENTOS or etapa not in ETAPAS[:3]:
+                raise ValueError("Selecciona un nivel disponible antes de calificar.")
+            tema = SEGUIMIENTOS[seleccion]
+            preguntas = preguntas_nivel(tema, etapa)
             respuestas = {p["id"]: r or "" for p, r in zip(preguntas, valores[:-1])}
-            resultado = calificar(respuestas, tiempo=max(0.0, time.monotonic() - (estado_actual.get("inicio_actividad") or time.monotonic())), variante_usada=variante)
+            resultado = calificar_nivel(tema, etapa, respuestas,
+                                       max(0.0, time.monotonic() - (estado_actual.get("inicio_actividad") or time.monotonic())))
             resultado["respuestas"] = respuestas
-            nuevo = dict(estado_actual)
-            nuevo["variantes_usadas"] = list(nuevo["variantes_usadas"]) + [variante]
-            return registrar_resultado(resultado, nuevo)
+            return registrar_resultado(resultado, estado_actual)
 
         def calificar_lab_node(*valores):
             estado_actual = valores[-1]
             respuestas = {e["id"]: r or "" for e, r in zip(ejercicios_lab_node, valores[:-1])}
             inicio = estado_actual.get("inicio_actividad") or time.monotonic()
             resultado = calificar_laboratorio_node(respuestas, tiempo_segundos=max(0.0, time.monotonic() - inicio))
-            return registrar_resultado(resultado, estado_actual)
-
-        def calificar_seg_node(*valores):
-            estado_actual = valores[-1]
-            variante = estado_actual.get("variante_activa")
-            if not variante:
-                raise ValueError("Selecciona una variante de seguimiento Node.js.")
-            variante_actual, preguntas = obtener_variante_seguimiento_node(estado_actual["variantes_usadas"])
-            if variante_actual != variante:
-                raise ValueError("La variante activa Node.js no coincide.")
-            faltantes = [NODO_A_TEMA[r] for r in motor.grafo[TEMA_A_NODO["Backend con Node.js"]]["prerrequisitos"]
-                         if NODO_A_TEMA[r] not in estado_actual["completados"]]
-            if faltantes:
-                raise ValueError("Backend con Node.js sigue bloqueado.")
-            respuestas = {p["id"]: r or "" for p, r in zip(preguntas, valores[:-1])}
-            resultado = calificar_seguimiento_node(respuestas, tiempo_segundos=max(0.0, time.monotonic() - (estado_actual.get("inicio_actividad") or time.monotonic())), variante=variante)
+            resultado["respuestas"] = respuestas
             return registrar_resultado(resultado, estado_actual)
 
         resultado_outputs = [
             estado, resultado_principal, resultado_efecto, resultado_revision,
             resultado_retro, resultado_recurso,
             ruta_cabecera, siguiente_paso, lista_pasos, grafo, tema_detalle, tema_grafo,
-            navegacion, explicacion_ia, pedir_ia, cargando_ia,
+            navegacion, tipo_actividad, explicacion_ia, pedir_ia, cargando_ia,
         ]
         enviar_logica.click(calificar_lab_logica, [*respuestas_logica, estado], resultado_outputs)
         enviar_mvc.click(calificar_lab_mvc, [*respuestas_mvc, estado], resultado_outputs)
@@ -1093,7 +1090,6 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
         enviar_lab.click(calificar_lab, [*respuestas_lab, estado], resultado_outputs)
         enviar_seg.click(calificar_seg, [*respuestas_seg, estado], resultado_outputs)
         enviar_lab_node.click(calificar_lab_node, [*respuestas_lab_node, estado], resultado_outputs)
-        enviar_seg_node.click(calificar_seg_node, [*respuestas_seg_node, estado], resultado_outputs)
 
         def mostrar_cargando_ia():
             return (gr.update(**_boton_ia(False, "Generando explicación…")), gr.update(visible=True), "")
@@ -1102,8 +1098,6 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             resultado = estado_actual.get("resultado")
             if not resultado:
                 return ("Primero completa una actividad calificada.", gr.update(**_boton_ia(False)), gr.update(visible=False))
-            if resultado.get("tipo") == "poo":
-                return ("La práctica de POO no tiene calificación automática.", gr.update(**_boton_ia(False)), gr.update(visible=False))
             try:
                 explicacion = solicitar_explicacion(resultado, estado_actual["perfil"].get("formato"))
             except Exception as exc:
@@ -1119,14 +1113,34 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
         )
 
         volver_ruta.click(lambda: gr.update(selected="ruta"), outputs=navegacion)
+        def volver_a_actividad(actual):
+            resultado = actual.get("resultado") or {}
+            tema = NODO_A_TEMA.get(resultado.get("tema"), resultado.get("tema"))
+            seleccion = _seleccion_para_tema(actual, tema)
+            if not seleccion:
+                seleccion = _seleccion_para_tema(actual, actual["recomendacion"].get("siguiente_tema"))
+            return (gr.update(selected="actividad" if seleccion else "ruta"),
+                    gr.update(value=seleccion))
+
+        reintentar.click(volver_a_actividad, estado, [navegacion, tipo_actividad]).then(
+            seleccionar_actividad, [tipo_actividad, estado], seleccion_outputs,
+        ).then(
+            reiniciar_navegacion_actividades,
+            [control for vista in vistas_actividad for control in vista.respuestas],
+            [salida for vista in vistas_actividad for salida in vista.salidas],
+            show_progress="hidden",
+        )
         otra_actividad.click(lambda: (gr.update(selected="actividad"), gr.update(value=None)), outputs=[navegacion, tipo_actividad])
         continuar_siguiente.click(
             lambda actual: (
-                siguiente := actual["recomendacion"].get("siguiente_tema"),
-                gr.update(selected="actividad") if siguiente else gr.update(selected="ruta"),
-                gr.update(value=None),
-            )[1:],
-            estado, [navegacion, tipo_actividad],
+                gr.update(selected="actividad") if actual["recomendacion"].get("siguiente_tema") else gr.update(selected="ruta"),
+                gr.update(value=_seleccion_para_tema(actual, actual["recomendacion"].get("siguiente_tema"))),
+            ), estado, [navegacion, tipo_actividad],
+        ).then(seleccionar_actividad, [tipo_actividad, estado], seleccion_outputs).then(
+            reiniciar_navegacion_actividades,
+            [control for vista in vistas_actividad for control in vista.respuestas],
+            [salida for vista in vistas_actividad for salida in vista.salidas],
+            show_progress="hidden",
         )
 
     return demo

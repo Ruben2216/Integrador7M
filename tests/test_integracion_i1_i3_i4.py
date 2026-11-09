@@ -82,6 +82,10 @@ def test_persistencia_deduplica_y_rechaza_datos_invalidos(tmp_path):
 def test_reprobado_posterior_conserva_acreditacion(tmp_path):
     store = AlmacenProgreso(tmp_path / "progress.json")
     store.iniciar("Backend con Node.js", "Visual")
+    previo = store.cargar()
+    previo["temas_acreditados"]["Bases de Datos PostgreSQL"] = {
+        "origen": "diagnóstico", "intento_id": "anterior", "legado": True}
+    store.guardar(previo)
     passed = {
         "id": "pass", "tema": "Bases de Datos PostgreSQL",
         "tipo_actividad": "Actividad de seguimiento", "puntaje": 4,
@@ -92,7 +96,7 @@ def test_reprobado_posterior_conserva_acreditacion(tmp_path):
     store.guardar_intento(passed)
     state = store.guardar_intento(failed)
     assert len(state["intentos"]) == 2
-    assert state["temas_acreditados"]["Bases de Datos PostgreSQL"]["origen"] == "actividad de seguimiento"
+    assert state["temas_acreditados"]["Bases de Datos PostgreSQL"]["origen"] == "diagnóstico"
 
 
 def test_error_de_escritura_no_reemplaza_ultimo_estado(tmp_path, monkeypatch):
