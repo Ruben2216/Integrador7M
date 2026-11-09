@@ -530,11 +530,11 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
 
     def montar_seguimiento(item, numero):
         preguntas_seg.append(gr.Markdown(elem_classes=["activity-prompt"]))
-        return [gr.Radio([], label=f"Respuesta {numero + 1}", elem_classes=["activity-options"])]
+        return [gr.Radio([], label=f"Respuesta {numero + 1}", show_label=False, elem_classes=["activity-options"])]
 
     def montar_seguimiento_node(item, numero):
         preguntas_seg_node.append(gr.Markdown(elem_classes=["activity-prompt"]))
-        return [gr.Radio([], label=f"Respuesta Node.js {numero + 1}", elem_classes=["activity-options"])]
+        return [gr.Radio([], label=f"Respuesta Node.js {numero + 1}", show_label=False, elem_classes=["activity-options"])]
 
     with gr.Blocks(title="Rutas de aprendizaje · Proyecto Integrador") as demo:
         estado = gr.State(estado_inicial)

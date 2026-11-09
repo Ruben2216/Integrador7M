@@ -488,22 +488,37 @@ table.schema td.mono { color: var(--text); }
 /* ── Actividad: referencia HTML adaptada a los componentes Gradio ─────── */
 #activity-view {
   --activity-bg: #0c131e;
-  --activity-surface: #141e2b;
-  --activity-field: #192635;
-  --activity-border: #344457;
+  --activity-surface: #0e1b27;
+  --activity-field: #101e2b;
+  --activity-border: #465c6e;
   --activity-text: #edf3f8;
   --activity-muted: #afbecd;
   --activity-accent: #79d8c1;
   --activity-ink: #112c27;
-  --activity-radius: 14px;
+  --activity-radius: 12px;
   box-sizing: border-box;
   width: 100%;
   max-width: 1208px;
   margin-inline: auto;
   padding: 28px 24px 56px;
-  background: var(--activity-bg);
+  background: var(--activity-bg) !important;
   color: var(--activity-text);
   font: 16px/1.55 var(--font);
+}
+/* Los Group de Gradio añaden superficies internas con el gris del tema. */
+#activity-view,
+#activity-view .styler {
+  --background-fill-primary: var(--activity-bg);
+  --background-fill-secondary: var(--activity-surface);
+  --block-background-fill: transparent;
+  --panel-background-fill: transparent;
+  --input-background-fill: var(--activity-field);
+}
+#activity-view :is(.styler, .html-container),
+#activity-view .activity-panel > .wrap,
+#activity-view .activity-question > .wrap,
+#activity-view .activity-progress > .wrap {
+  background: transparent !important;
 }
 #activity-view .activity-lead { display: grid; gap: 6px; margin: 0 0 20px; }
 #activity-view .activity-lead h2 {
@@ -561,11 +576,11 @@ table.schema td.mono { color: var(--text); }
 #activity-view .activity-card {
   box-sizing: border-box;
   min-width: 0;
-  padding: 24px !important;
-  background: var(--activity-surface) !important;
+  padding: 20px !important;
+  background: linear-gradient(135deg, var(--activity-surface), #101d29) !important;
   border: 1px solid var(--activity-border) !important;
   border-radius: var(--activity-radius) !important;
-  box-shadow: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
   gap: 16px;
 }
 #activity-view .activity-sidebar { gap: 16px; }
@@ -578,12 +593,25 @@ table.schema td.mono { color: var(--text); }
   border: 0 !important;
   box-shadow: none;
 }
-#activity-view .activity-question { padding: 0; gap: 16px; }
+#activity-view .activity-question { padding: 0; gap: 12px; }
 #activity-view .activity-prompt h3 { margin: 0 0 10px; font-size: 1.4rem; line-height: 1.35; }
 #activity-view .activity-prompt p { color: var(--activity-text); line-height: 1.65; }
 #activity-view .activity-prompt .activity-meta { color: var(--activity-muted); }
 #activity-view .activity-prompt :is(p, strong) { overflow-wrap: anywhere; }
 #activity-view .activity-prompt .prose p { margin: 0 0 12px; }
+/* En seguimiento, el último párrafo contiene la pregunta que se responde. */
+#activity-view .activity-question .activity-prompt .prose > p:last-child {
+  color: var(--activity-text);
+  font-size: 1.2rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+#activity-view .activity-question .activity-prompt .prose > p:first-child:not(:last-child),
+#activity-view .activity-question .activity-prompt .prose > p:first-child:not(:last-child) strong {
+  color: var(--activity-muted);
+  font-size: .78rem;
+  font-weight: 500;
+}
 #activity-view .activity-options .wrap {
   display: flex !important;
   flex-direction: column;
@@ -595,12 +623,20 @@ table.schema td.mono { color: var(--text); }
   box-sizing: border-box;
   width: 100%;
   margin: 0;
-  padding: 11px 13px !important;
+  padding: 9px 14px !important;
   border: 1px solid var(--activity-border) !important;
   border-radius: 8px !important;
   background: var(--activity-field) !important;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 14px;
+}
+#activity-view .activity-options label span {
+  font-family: var(--mono) !important;
+  font-size: .88rem;
+}
+#activity-view .activity-options label:hover {
+  border-color: #7892a5 !important;
+  background: #152836 !important;
 }
 #activity-view :is(.activity-options, .activity-catalog) label span {
   white-space: pre-wrap !important;
@@ -608,7 +644,12 @@ table.schema td.mono { color: var(--text); }
   color: var(--activity-text) !important;
   line-height: 1.55;
 }
-#activity-view input[type="radio"] { flex: none; accent-color: var(--activity-accent) !important; }
+#activity-view input[type="radio"] {
+  flex: none;
+  accent-color: var(--activity-accent) !important;
+  border: 1px solid #8ca2b5 !important;
+  border-radius: 50% !important;
+}
 #activity-view :is(.activity-options, .activity-catalog) label:has(input:checked) {
   border: 1px solid var(--activity-accent) !important;
   background: #233e37 !important;
@@ -647,7 +688,13 @@ table.schema td.mono { color: var(--text); }
   padding-top: 16px;
   margin-top: 8px;
 }
-#activity-view .activity-actions button { flex: 0 0 auto; min-width: 110px; }
+#activity-view .activity-actions button {
+  flex: 0 0 auto;
+  min-width: 90px;
+  min-height: 36px;
+  padding: 8px 18px;
+  font-size: .86rem;
+}
 #activity-view button { border-radius: 8px !important; font-weight: 650 !important; }
 #activity-view button.primary {
   background: var(--activity-accent) !important;
@@ -655,7 +702,13 @@ table.schema td.mono { color: var(--text); }
   border-color: transparent !important;
 }
 #activity-view button.secondary { border-color: var(--activity-border) !important; color: var(--activity-text) !important; }
-#activity-view button:disabled { opacity: .4; cursor: default; }
+#activity-view button:disabled {
+  background: #253746 !important;
+  border-color: #354957 !important;
+  color: #8293a1 !important;
+  opacity: .65;
+  cursor: default;
+}
 #activity-view :is(button, input, textarea, summary):focus-visible {
   outline: 2px solid var(--activity-accent) !important;
   outline-offset: 3px !important;
@@ -699,4 +752,11 @@ table.schema td.mono { color: var(--text); }
   padding-top: 12px;
 }
 #activity-view .activity-help summary { cursor: pointer; font-weight: 650; }
+
+@media (max-width: 760px) {
+  #activity-view { padding: 18px 0 32px; }
+  #activity-view .activity-layout { grid-template-columns: minmax(0, 1fr); }
+  #activity-view .activity-card { padding: 18px !important; }
+  #activity-view .activity-catalog .wrap { grid-template-columns: 1fr; }
+}
 """
