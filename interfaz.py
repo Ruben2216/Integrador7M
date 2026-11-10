@@ -41,7 +41,8 @@ from retroalimentacion import (
 )
 from ui import vistas
 from ui.actividad import VistaActividad
-from ui.resultados import renderizar_retroalimentacion
+from ui.resultados import (renderizar_retroalimentacion, solicitud_explicacion_html,
+                           error_explicacion_html)
 from ui.estilos import CSS
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
@@ -333,22 +334,22 @@ def _seleccion_para_tema(estado: dict[str, Any], tema: str | None) -> str | None
     return next((etiqueta for etiqueta, destino in opciones.items() if destino == tema), None)
 
 GEMINI_ACTIVO = cargar_config().disponible
-TEXTO_BOTON_IA = "Pedir explicación con IA (Gemini)"
+TEXTO_BOTON_IA = "Pedir explicación con IA"
 CARGANDO_IA_HTML = (
-    '<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;">'
-    '<svg width="26" height="26" viewBox="0 0 50 50" aria-hidden="true">'
-    '<circle cx="25" cy="25" r="20" fill="none" stroke="#d0d7de" stroke-width="5"/>'
-    '<circle cx="25" cy="25" r="20" fill="none" stroke="#f97316" stroke-width="5" '
+    '<div class="feedback-loading" role="status" aria-live="polite">'
+    '<svg width="20" height="20" viewBox="0 0 50 50" aria-hidden="true">'
+    '<circle cx="25" cy="25" r="20" fill="none" stroke="#2B3A50" stroke-width="4"/>'
+    '<circle cx="25" cy="25" r="20" fill="none" stroke="#5EEAD4" stroke-width="4" '
     'stroke-linecap="round" stroke-dasharray="80 126">'
     '<animateTransform attributeName="transform" type="rotate" from="0 25 25" '
     'to="360 25 25" dur="0.9s" repeatCount="indefinite"/></circle></svg>'
-    '<span>Generando la explicación con Gemini… puede tardar unos segundos.</span></div>'
+    '<span>Preparando tu explicación…</span></div>'
 )
 
 
 def _boton_ia(habilitado: bool, texto: str = TEXTO_BOTON_IA) -> dict[str, Any]:
     if not GEMINI_ACTIVO:
-        return {"value": "Explicación con IA no disponible (Gemini no configurado)",
+        return {"value": "Explicación con IA no disponible",
                 "interactive": False}
     return {"value": texto, "interactive": habilitado}
 
@@ -419,7 +420,7 @@ def _resultado_markdown(resultado: dict[str, Any], retroalimentacion=None, motor
         '<p class="muted small">El tema se acredita al aprobar las tres etapas y la práctica final.</p></section>'
     )
     revision = vistas.resultado_revision_html(resultado, {})
-    retro = vistas.resultado_retro_html(resultado)
+    retro = renderizar_retroalimentacion(retroalimentacion)
     recursos = _recursos_html(catalogo, tema, motor) if catalogo and motor else ""
     return principal, efecto, revision, retro, vistas.recurso_repaso_html(recursos)
 
@@ -718,8 +719,6 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                 resultado_efecto = gr.HTML()
                 with gr.Accordion("Revisión por pregunta o ejercicio", open=False):
                     resultado_revision = gr.HTML("<p class='muted small'>El detalle aparecerá después de calificar.</p>")
-                with gr.Accordion("Comentario y refuerzo", open=False):
-                    resultado_retro = gr.HTML()
                 resultado_recurso = gr.HTML()
                 with gr.Row(elem_classes=["button-row"]):
                     reintentar = gr.Button("Volver a la actividad")
@@ -730,14 +729,14 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
                     continuar_siguiente = gr.Button("Continuar con el siguiente tema")
                     elegir_meta = gr.Button("Elegir otra meta", visible=False)
 
-                gr.HTML(
-                    "<div style='margin-top:16px'><h4>Explicación con IA</h4>"
-                    f"<p class='muted small'>{estado_gemini()}</p>"
-                    "<p class='muted small'>La calificación, el guardado y la ruta ya están listos; la explicación es un complemento.</p></div>"
-                )
-                pedir_ia = gr.Button(**_boton_ia(False))
-                cargando_ia = gr.HTML(CARGANDO_IA_HTML, visible=False)
-                explicacion_ia = gr.Markdown()
+                with gr.Column(elem_id="feedback-view", min_width=0):
+                    resultado_retro = gr.HTML(elem_id="feedback-local")
+                    explicacion_ia = gr.HTML(elem_id="feedback-ai")
+                    with gr.Column(elem_id="feedback-request", min_width=0):
+                        gr.HTML(solicitud_explicacion_html(estado_gemini()))
+                        with gr.Row(elem_classes=["feedback-actions"]):
+                            pedir_ia = gr.Button(**_boton_ia(False), variant="secondary")
+                        cargando_ia = gr.HTML(CARGANDO_IA_HTML, visible=False)
 
         # ── Callbacks ──────────────────────────────────────────────────────
 
@@ -1101,11 +1100,11 @@ def construir_interfaz(motor: Any) -> gr.Blocks:
             try:
                 explicacion = solicitar_explicacion(resultado, estado_actual["perfil"].get("formato"))
             except Exception as exc:
-                return (f"No se pudo generar la explicación: {exc}", gr.update(**_boton_ia(True, "Reintentar explicación con IA (Gemini)")), gr.update(visible=False))
+                return (error_explicacion_html(str(exc)), gr.update(**_boton_ia(True, "Reintentar explicación")), gr.update(visible=False))
             if explicacion.get("origen") == "gemini":
                 boton = _boton_ia(False, "Explicación con IA generada")
             else:
-                boton = _boton_ia(True, "Reintentar explicación con IA (Gemini)")
+                boton = _boton_ia(True, "Reintentar explicación")
             return (renderizar_retroalimentacion(explicacion), gr.update(**boton), gr.update(visible=False))
 
         pedir_ia.click(mostrar_cargando_ia, outputs=[pedir_ia, cargando_ia, explicacion_ia], queue=False, show_progress="hidden", trigger_mode="once").then(

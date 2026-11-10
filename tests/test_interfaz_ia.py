@@ -62,7 +62,7 @@ def _preparar_integrador(tema, seleccion, previos):
 
 def test_texto_del_boton_y_deshabilitado_sin_intento(app):
     _, _, boton = app
-    assert boton.value == "Pedir explicación con IA (Gemini)"
+    assert boton.value == "Pedir explicación con IA"
     assert boton.interactive is False
 
 
@@ -93,7 +93,8 @@ def test_explicacion_de_gemini_bloquea_el_boton(app, monkeypatch):
         "origen": "gemini", "modelo": "gemini-3.5-flash", "acierto": "a", "mejora": "b",
         "pista": "c", "recurso": None})
     texto, boton, circulo = eventos["pedir_explicacion"].fn(estado)
-    assert "Generada con Gemini (gemini-3.5-flash)" in texto
+    assert "Generada con IA" in texto
+    assert "<summary>Detalles técnicos</summary>" in texto and "gemini-3.5-flash" in texto
     assert boton["interactive"] is False and "generada" in boton["value"]
     assert circulo["visible"] is False
 

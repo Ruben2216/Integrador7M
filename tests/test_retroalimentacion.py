@@ -388,9 +388,9 @@ def test_pantalla_de_resultados_muestra_ambos_casos_igual():
         resultado, config=ConfigGemini(api_key="x"),
         transporte=TransporteFalso(_respuesta_gemini(VALIDA))))
     for texto in (local, gemini):
-        assert "Fortaleza" in texto and "Área de mejora" in texto
-        assert "Sugerencia" in texto and "Material recomendado" in texto and "](https://" in texto
-    assert "Basada en la rúbrica" in local and "Generada con Gemini" in gemini
+        assert "Lo que hiciste bien" in texto and "Qué puedes reforzar" in texto
+        assert "Tu siguiente paso" in texto and "Material recomendado" in texto and 'href="https://' in texto
+    assert "Basada en la rúbrica" in local and "Generada con IA" in gemini
 
 
 # ── Contenido y calificación del tema MVC en PHP ────────────────────────────
